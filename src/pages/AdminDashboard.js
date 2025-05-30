@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import DatePicker from 'react-datepicker';
@@ -7,108 +7,73 @@ import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState([]);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    inactiveUsers: 0
-  });
+  const { user, logout } = useAuth();
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReport, setSelectedReport] = useState('all');
 
-  useEffect(() => {
-    fetchUsers();
-  }, [startDate, endDate, searchTerm]);
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          startDate: startDate?.toISOString().split('T')[0],
-          endDate: endDate?.toISOString().split('T')[0],
-          search: searchTerm
-        })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setUsers(data.users);
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
+  // Static data for demonstration
+  const stats = {
+    totalUsers: 150,
+    activeUsers: 120,
+    inactiveUsers: 30
   };
+
+  const users = [
+    {
+      id: 1,
+      name: "John Doe",
+      email: "john@example.com",
+      role: "Admin",
+      status: "active",
+      created_at: "2024-03-15"
+    },
+    {
+      id: 2,
+      name: "Jane Smith",
+      email: "jane@example.com",
+      role: "User",
+      status: "active",
+      created_at: "2024-03-14"
+    },
+    {
+      id: 3,
+      name: "Mike Johnson",
+      email: "mike@example.com",
+      role: "User",
+      status: "inactive",
+      created_at: "2024-03-13"
+    },
+    {
+      id: 4,
+      name: "Sarah Wilson",
+      email: "sarah@example.com",
+      role: "User",
+      status: "active",
+      created_at: "2024-03-12"
+    },
+    {
+      id: 5,
+      name: "David Brown",
+      email: "david@example.com",
+      role: "User",
+      status: "inactive",
+      created_at: "2024-03-11"
+    }
+  ];
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const handleExport = async () => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/export`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          startDate: startDate?.toISOString().split('T')[0],
-          endDate: endDate?.toISOString().split('T')[0],
-          reportType: selectedReport
-        })
-      });
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `users-report-${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Error exporting data:', error);
-    }
+  const handleExport = () => {
+    alert('Export functionality would be implemented here');
   };
 
-  const handleUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/admin/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        fetchUsers();
-      }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-    }
+  const handleUpload = () => {
+    alert('Upload functionality would be implemented here');
   };
 
   return (
@@ -118,6 +83,9 @@ const AdminDashboard = () => {
           <h1>Admin Dashboard</h1>
         </div>
         <div className="admin-header-right">
+          <div className="user-info">
+            <span className="username">Welcome, {user || 'User'}</span>
+          </div>
           <div className="admin-actions">
             <select 
               value={selectedReport} 
@@ -200,46 +168,42 @@ const AdminDashboard = () => {
         </div>
 
         <div className="users-table-container">
-          {loading ? (
-            <div className="loading">Loading...</div>
-          ) : (
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Created At</th>
-                  <th>Actions</th>
+          <table className="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(user => (
+                <tr key={user.id}>
+                  <td>{user.id}</td>
+                  <td>{user.name}</td>
+                  <td>{user.email}</td>
+                  <td>{user.role}</td>
+                  <td>
+                    <span className={`status-badge ${user.status}`}>
+                      {user.status}
+                    </span>
+                  </td>
+                  <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button className="view-btn">View</button>
+                      <button className="edit-btn">Edit</button>
+                      <button className="delete-btn">Delete</button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {users.map(user => (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.role}</td>
-                    <td>
-                      <span className={`status-badge ${user.status}`}>
-                        {user.status}
-                      </span>
-                    </td>
-                    <td>{new Date(user.created_at).toLocaleDateString()}</td>
-                    <td>
-                      <div className="action-buttons">
-                        <button className="view-btn">View</button>
-                        <button className="edit-btn">Edit</button>
-                        <button className="delete-btn">Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

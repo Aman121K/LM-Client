@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
 import { BASE_URL } from '../config';
 
 const AuthContext = createContext(null);
@@ -20,33 +19,38 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
-    if (token) {
-      const userData = JSON.parse(localStorage.getItem('user'));
-      setUser(userData);
+    const storedUser = localStorage.getItem('user');
+    const storedUserType = localStorage.getItem('userType');
+    
+    if (token && storedUser) {
+      setUser(storedUser);
+      setUserType(storedUserType);
     }
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (username, password) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/login`, {
+      const response = await fetch(`${BASE_URL}/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
-      const data = await response.json();
+      const responseData = await response.json();
 
-      if (data.success) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userType', data.userType);
-        setUser(data.user);
-        setUserType(data.userType);
-        return { success: true, userType: data.userType };
+      if (responseData.success) {
+        const { token, user } = responseData.data;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', user.username);
+        localStorage.setItem('userType', user.userType);
+        setUser(user.username);
+        setUserType(user.userType);
+        return { success: true, userType: user.userType };
       } else {
-        return { success: false, message: data.message };
+        return { success: false, message: responseData.message || 'Login failed' };
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -56,6 +60,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     localStorage.removeItem('userType');
     setUser(null);
     setUserType(null);

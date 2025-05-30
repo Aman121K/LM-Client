@@ -1,110 +1,76 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import './Dashboard.css';
-import { BASE_URL } from '../config';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [leads, setLeads] = useState([]);
-  const [stats, setStats] = useState({
-    totalLeads: 0,
-    activeLeads: 0,
-    pendingLeads: 0,
-    completedLeads: 0
-  });
-
-  // Filter states
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('all');
   const [mobileSearch, setMobileSearch] = useState('');
-  const [selectedReport, setSelectedReport] = useState('');
 
-  // Fetch leads with filters
-  const fetchLeads = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${BASE_URL}/dashboard/leads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          callStatus,
-          mobileSearch
-        })
-      });
-      const data = await response.json();
-      if (data.success) {
-        setLeads(data.leads);
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-    } finally {
-      setLoading(false);
-    }
+  // Static data for demonstration
+  const stats = {
+    totalLeads: 150,
+    activeLeads: 120,
+    pendingLeads: 20,
+    completedLeads: 10
   };
 
-  useEffect(() => {
-    fetchLeads();
-  }, [startDate, endDate, callStatus, mobileSearch]);
-
-  const handleReportDownload = async () => {
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/dashboard/report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          callStatus,
-          reportType: selectedReport
-        })
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report-${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
-      }
-    } catch (error) {
-      console.error('Error downloading report:', error);
+  const leads = [
+    {
+      id: 1,
+      name: "John Smith",
+      mobile: "1234567890",
+      email: "john@example.com",
+      call_status: "pending",
+      created_at: "2024-03-15"
+    },
+    {
+      id: 2,
+      name: "Jane Doe",
+      mobile: "9876543210",
+      email: "jane@example.com",
+      call_status: "completed",
+      created_at: "2024-03-14"
+    },
+    {
+      id: 3,
+      name: "Mike Johnson",
+      mobile: "5555555555",
+      email: "mike@example.com",
+      call_status: "no_answer",
+      created_at: "2024-03-13"
     }
+  ];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
-        <h1>Lead Management System</h1>
-        <div className="header-actions">
-          <button onClick={handleReportDownload} className="report-button">
-            Download Report
-          </button>
-          <button onClick={logout} className="logout-button">
+        <div className="header-left">
+          <h1>Lead Management System</h1>
+        </div>
+        <div className="header-right">
+          <div className="user-info">
+            <span className="username">Welcome, {user}</span>
+          </div>
+          <button onClick={handleLogout} className="logout-button">
             Logout
           </button>
         </div>
       </header>
 
       <main className="dashboard-content">
-        {/* Filters Section */}
-        <section className="filters-section">
+        <div className="filters-section">
           <div className="filter-group">
             <label>Date Range:</label>
             <div className="date-range">
@@ -145,7 +111,7 @@ const Dashboard = () => {
           </div>
 
           <div className="filter-group">
-            <label>Mobile Search:</label>
+            <label>Search Mobile:</label>
             <input
               type="text"
               value={mobileSearch}
@@ -154,24 +120,9 @@ const Dashboard = () => {
               className="mobile-search"
             />
           </div>
+        </div>
 
-          <div className="filter-group">
-            <label>Report Type:</label>
-            <select 
-              value={selectedReport} 
-              onChange={(e) => setSelectedReport(e.target.value)}
-              className="report-select"
-            >
-              <option value="">Select Report</option>
-              <option value="daily">Daily Report</option>
-              <option value="weekly">Weekly Report</option>
-              <option value="monthly">Monthly Report</option>
-            </select>
-          </div>
-        </section>
-
-        {/* Stats Overview */}
-        <section className="stats-overview">
+        <div className="stats-overview">
           <div className="stat-card">
             <h3>Total Leads</h3>
             <p className="stat-number">{stats.totalLeads}</p>
@@ -188,9 +139,8 @@ const Dashboard = () => {
             <h3>Completed Leads</h3>
             <p className="stat-number">{stats.completedLeads}</p>
           </div>
-        </section>
+        </div>
 
-        {/* Leads Table */}
         <section className="leads-table">
           <div className="table-container">
             <table>

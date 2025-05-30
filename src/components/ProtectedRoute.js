@@ -15,12 +15,16 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return children;
   }
 
+  // Convert to lowercase for case-insensitive comparison
+  const userRole = userType?.toLowerCase();
+  const requiredRoleLower = requiredRole.toLowerCase();
+
   // Check if user has the required role
-  if (requiredRole === 'admin' && userType !== 'admin') {
+  if (requiredRoleLower === 'admin' && userRole !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (requiredRole === 'user' && !['user', 'tl'].includes(userType)) {
+  if (requiredRoleLower === 'user' && !['user', 'tl'].includes(userRole)) {
     return <Navigate to="/admin" replace />;
   }
 
