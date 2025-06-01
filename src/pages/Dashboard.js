@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
+import UserHeaderSection from '../components/UserHeaderSection';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('all');
@@ -48,26 +45,9 @@ const Dashboard = () => {
     }
   ];
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
     <div className="dashboard-container">
-      <header className="dashboard-header">
-        <div className="header-left">
-          <h1>Lead Management System</h1>
-        </div>
-        <div className="header-right">
-          <div className="user-info">
-            <span className="username">Welcome, {user}</span>
-          </div>
-          <button onClick={handleLogout} className="logout-button">
-            Logout
-          </button>
-        </div>
-      </header>
+      <UserHeaderSection />
 
       <main className="dashboard-content">
         <div className="filters-section">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
+import AdminHeaderSection from '../components/AdminHeaderSection';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -78,45 +79,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="admin-dashboard">
-      <div className="admin-header">
-        <div className="admin-header-left">
-          <h1>Admin Dashboard</h1>
-        </div>
-        <div className="admin-header-right">
-          <div className="user-info">
-            <span className="username">Welcome, {user || 'User'}</span>
-          </div>
-          <div className="admin-actions">
-            <select 
-              value={selectedReport} 
-              onChange={(e) => setSelectedReport(e.target.value)}
-              className="report-select"
-            >
-              <option value="all">All Users</option>
-              <option value="active">Active Users</option>
-              <option value="inactive">Inactive Users</option>
-            </select>
-            <button onClick={handleExport} className="export-btn">
-              Export Data
-            </button>
-            <div className="upload-container">
-              <input
-                type="file"
-                id="file-upload"
-                onChange={handleUpload}
-                accept=".xlsx,.xls,.csv"
-                style={{ display: 'none' }}
-              />
-              <label htmlFor="file-upload" className="upload-btn">
-                Upload Data
-              </label>
-            </div>
-            <button onClick={handleLogout} className="logout-btn">
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminHeaderSection />
 
       <div className="admin-content">
         <div className="filters-section">
