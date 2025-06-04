@@ -23,10 +23,27 @@ const Dashboard = () => {
     pendingLeads: 0,
     completedLeads: 0
   });
+  const [editingLead, setEditingLead] = useState(null);
+  const [editForm, setEditForm] = useState({
+    FirstName: '',
+    LastName: '',
+    EmailId: '',
+    ContactNumber: '',
+    callstatus: '',
+    remarks: '',
+    followup: '',
+    productname: '',
+    unittype: '',
+    budget: ''
+  });
+  const [budgetList, setBudgetList] = useState([]);
+  const [unitList, setUnitList] = useState([]);
 
   useEffect(() => {
     fetchCallStatuses();
     fetchLoginUserCallStatus();
+    fetchBudgetList();
+    fetchUnitList();
   }, [startDate, endDate, callStatus, mobileSearch, user]);
 
   const fetchCallStatuses = async () => {
@@ -54,10 +71,17 @@ const Dashboard = () => {
     try {
       setLoading(true);
       console.log("user>>>>>>>>", user);
+      
+      // Format dates to YYYY-MM-DD without time
+      const formatDate = (date) => {
+        const d = new Date(date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      };
+
       const params = new URLSearchParams({
-        // startDate: startDate.toISOString().split('T')[0],
-        // endDate: endDate.toISOString().split('T')[0],
-        // callStatus: callStatus,
+        startDate: formatDate(startDate),
+        endDate: formatDate(endDate),
+        callStatus: callStatus,
         callby: user
       });
 
@@ -87,7 +111,55 @@ const Dashboard = () => {
     }
   };
 
+  const fetchBudgetList = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/leads/allBudgetsList`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log("budget list data>>", data.data);
+        // Format the data to use namew field and filter out 0000
+        const formattedBudgets = data.data
+          .filter(budget => budget.id && budget.namew && !budget.namew.includes('0000')) // Filter out 0000 and null values
+          .map(budget => ({
+            id: budget.id,
+            name: budget.namew || `Budget ${budget.id}`,
+            status: budget.status
+          }));
+        setBudgetList(formattedBudgets);
+      } else {
+        setError(data.message || 'Failed to fetch budget list');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching budget list');
+    }
+  };
+
+  const fetchUnitList = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/leads/allUnitList`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setUnitList(data.data || []);
+      } else {
+        setError(data.message || 'Failed to fetch unit list');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching unit list');
+    }
+  };
+
   const handleCallStatusChange = (e) => {
+    console.log("selected data>>", e?.target?.value);
     const selectedStatus = e.target.value;
     setCallStatus(selectedStatus);
   };
@@ -109,6 +181,59 @@ const Dashboard = () => {
     const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
     return phoneNumber.includes(searchTerm);
   });
+
+  const handleEditClick = (lead) => {
+    setEditingLead(lead);
+    setEditForm({
+      FirstName: lead.FirstName || '',
+      LastName: lead.LastName || '',
+      EmailId: lead.EmailId || '',
+      ContactNumber: lead.ContactNumber || '',
+      callstatus: lead.callstatus || '',
+      remarks: lead.remarks || '',
+      followup: lead.followup || '',
+      productname: lead.productname || '',
+      unittype: lead.unittype || '',
+      budget: lead.budget || ''
+    });
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${BASE_URL}/leads/${editingLead.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(editForm)
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Update the leads list with the edited lead
+        setLoginUserCallStatus(prevLeads => 
+          prevLeads.map(lead => 
+            lead.id === editingLead.id ? { ...lead, ...editForm } : lead
+          )
+        );
+        setEditingLead(null); // Close the edit form
+      } else {
+        setError(data.message || 'Failed to update lead');
+      }
+    } catch (error) {
+      setError('An error occurred while updating the lead');
+    }
+  };
 
   return (
     <div className="dashboard-container">
@@ -149,7 +274,7 @@ const Dashboard = () => {
             >
               <option value="all">All</option>
               {callStatuses?.map((status, index) => (
-                <option key={index} value={status?.id}>
+                <option key={index} value={status?.name}>
                   {status?.name}
                 </option>
               ))}
@@ -212,7 +337,7 @@ const Dashboard = () => {
                       <td>{lead.id}</td>
                       <td>{lead.FirstName}</td>
                       <td>{lead.ContactNumber}</td>
-                      <td>{lead.email}</td>
+                      <td>{lead.EmailId}</td>
                       <td>
                         <span className={`status-badge ${lead?.callstatus.toLowerCase()}`}>
                           {lead.call_status}
@@ -221,7 +346,12 @@ const Dashboard = () => {
                       <td>{new Date(lead.created_at).toLocaleDateString()}</td>
                       <td>
                         <button className="action-button view">View</button>
-                        <button className="action-button edit">Edit</button>
+                        <button 
+                          className="action-button edit"
+                          onClick={() => handleEditClick(lead)}
+                        >
+                          Edit
+                        </button>
                         <button 
                           className="action-button call"
                           onClick={() => handleCallClick(lead.ContactNumber)}
@@ -236,6 +366,133 @@ const Dashboard = () => {
             </div>
           )}
         </section>
+
+        {/* Edit Form Modal */}
+        {editingLead && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2>Edit Lead</h2>
+              <form onSubmit={handleEditSubmit}>
+                <div className="form-group">
+                  <label>First Name:</label>
+                  <input
+                    type="text"
+                    name="FirstName"
+                    value={editForm.FirstName}
+                    onChange={handleEditFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last Name:</label>
+                  <input
+                    type="text"
+                    name="LastName"
+                    value={editForm.LastName}
+                    onChange={handleEditFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email:</label>
+                  <input
+                    type="email"
+                    name="EmailId"
+                    value={editForm.EmailId}
+                    onChange={handleEditFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Contact Number:</label>
+                  <input
+                    type="text"
+                    name="ContactNumber"
+                    value={editForm.ContactNumber}
+                    onChange={handleEditFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Call Status:</label>
+                  <select
+                    name="callstatus"
+                    value={editForm.callstatus}
+                    onChange={handleEditFormChange}
+                  >
+                    {callStatuses?.map((status, index) => (
+                      <option key={index} value={status?.name}>
+                        {status?.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Remarks:</label>
+                  <textarea
+                    name="remarks"
+                    value={editForm.remarks}
+                    onChange={handleEditFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Follow Up:</label>
+                  <input
+                    type="text"
+                    name="followup"
+                    value={editForm.followup}
+                    onChange={handleEditFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Product Name:</label>
+                  <input
+                    type="text"
+                    name="productname"
+                    value={editForm.productname}
+                    onChange={handleEditFormChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Unit Type:</label>
+                  <select
+                    name="unittype"
+                    value={editForm.unittype}
+                    onChange={handleEditFormChange}
+                  >
+                    <option value="">Select Unit Type</option>
+                    {unitList.map((unit, index) => (
+                      <option key={index} value={unit.name}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Budget:</label>
+                  <select
+                    name="budget"
+                    value={editForm.budget}
+                    onChange={handleEditFormChange}
+                  >
+                    <option value="">Select Budget</option>
+                    {budgetList.map((budget, index) => (
+                      <option key={index} value={budget.name}>
+                        {budget.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="modal-actions">
+                  <button type="submit" className="submit-button">Update Lead</button>
+                  <button 
+                    type="button" 
+                    className="cancel-button"
+                    onClick={() => setEditingLead(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
