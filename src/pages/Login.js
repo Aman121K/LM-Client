@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { BASE_URL } from '../config';
 import './Login.css';
+import goRealtorsLogo from '../components/goRealtors.jpg';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [formData, setFormData] = useState({
+    username: '',
+    password: ''
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -22,27 +25,25 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const result = await login(username, password);
-      
-      if (result.success) {
-        // Convert userType to lowercase for consistent comparison
-        const userType = result.userType?.toLowerCase();
-        
-        // Navigate based on user type
-        switch (userType) {
-          case 'admin':
-            navigate('/admin');
-            break;
-          case 'user':
-          case 'tl':
-            navigate('/dashboard');
-            break;
-          default:
-            setError('Invalid user type');
-            break;
+      const response = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        login(data.token, data.user);
+        if (data.user === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
         }
       } else {
-        setError(result.message || 'Login failed');
+        setError(data.message || 'Login failed');
       }
     } catch (error) {
       setError('An error occurred during login');
@@ -51,13 +52,21 @@ const Login = () => {
     }
   };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setForgotPasswordMessage('');
     setForgotPasswordLoading(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/users/forgotPassword`, {
+      const response = await fetch(`${BASE_URL}/users/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,31 +96,38 @@ const Login = () => {
 
   return (
     <div className="login-container">
-      <div className="login-box">
-        <h1>Login</h1>
+      <div className="login-content">
+        <div className="login-logo">
+          <img src={goRealtorsLogo} alt="Go Realtors" className="logo-image" />
+        </div>
+        <h2>Login</h2>
         {error && <div className="error-message">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label>Username:</label>
             <input
               type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
               required
             />
           </div>
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label>Password:</label>
             <input
               type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               required
             />
           </div>
-          <button type="submit" disabled={loading}>
+          <button 
+            type="submit" 
+            className="login-button"
+            disabled={loading}
+          >
             {loading ? 'Logging in...' : 'Login'}
           </button>
           <div className="forgot-password-link">

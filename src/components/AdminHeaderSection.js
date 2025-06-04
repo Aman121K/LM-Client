@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AdminHeaderSection.css';
-
+import goRealtorsLogo from './goRealtors.jpg';
 const AdminHeaderSection = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -19,9 +19,9 @@ const AdminHeaderSection = () => {
   return (
     <div className="admin-header">
       <div className="admin-header-top">
-        <div className="admin-header-left">
-          <h1>Lead Management</h1>
-        </div>
+      <div className="user-header-left">
+        <img src={goRealtorsLogo} alt="Go Realtors" className="logo-image" />
+      </div>
         <div className="admin-header-right">
           <div className="user-info">
             <span>Welcome, {localStorage.getItem('user')}</span>

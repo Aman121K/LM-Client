@@ -5,12 +5,13 @@ import UserHeaderSection from '../components/UserHeaderSection';
 import { BASE_URL } from '../config';
 import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
-  const [callStatus, setCallStatus] = useState('Call Back Later');
+  const [callStatus, setCallStatus] = useState('All');
   const [mobileSearch, setMobileSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,6 +39,8 @@ const Dashboard = () => {
   });
   const [budgetList, setBudgetList] = useState([]);
   const [unitList, setUnitList] = useState([]);
+  const [viewingLead, setViewingLead] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCallStatuses();
@@ -141,7 +144,7 @@ const Dashboard = () => {
 
   const fetchUnitList = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/leads/allUnitList`, {
+      const response = await fetch(`${BASE_URL}/leads/allUnitslist`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -191,7 +194,7 @@ const Dashboard = () => {
       ContactNumber: lead.ContactNumber || '',
       callstatus: lead.callstatus || '',
       remarks: lead.remarks || '',
-      followup: lead.followup || '',
+      followup: lead.followup ? new Date(lead.followup) : new Date(),
       productname: lead.productname || '',
       unittype: lead.unittype || '',
       budget: lead.budget || ''
@@ -209,15 +212,32 @@ const Dashboard = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
+      setLoading(true);
+      // Format the followup date to YYYY-MM-DD
+      const formattedFollowup = editForm.followup instanceof Date 
+        ? editForm.followup.toISOString().split('T')[0]
+        : editForm.followup;
+
       const response = await fetch(`${BASE_URL}/leads/${editingLead.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify(editForm)
+        body: JSON.stringify({
+          FirstName: editForm.FirstName,
+          LastName: editForm.LastName,
+          EmailId: editForm.EmailId,
+          ContactNumber: editForm.ContactNumber,
+          callstatus: editForm.callstatus,
+          remarks: editForm.remarks,
+          followup: formattedFollowup,
+          productname: editForm.productname,
+          unittype: editForm.unittype,
+          budget: editForm.budget
+        })
       });
-
+      
       const data = await response.json();
       if (data.success) {
         // Update the leads list with the edited lead
@@ -227,12 +247,20 @@ const Dashboard = () => {
           )
         );
         setEditingLead(null); // Close the edit form
+        // Refresh the leads data
+        fetchLoginUserCallStatus();
       } else {
         setError(data.message || 'Failed to update lead');
       }
     } catch (error) {
       setError('An error occurred while updating the lead');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleViewClick = (lead) => {
+    setViewingLead(lead);
   };
 
   return (
@@ -240,83 +268,78 @@ const Dashboard = () => {
       <UserHeaderSection />
 
       <main className="dashboard-content">
-        <div className="filters-section">
-          <div className="filter-group">
-            <label>Date Range:</label>
-            <div className="date-range">
-              <DatePicker
-                selected={startDate}
-                onChange={date => setStartDate(date)}
-                selectsStart
-                startDate={startDate}
-                endDate={endDate}
-                className="date-picker"
-              />
-              <span>to</span>
-              <DatePicker
-                selected={endDate}
-                onChange={date => setEndDate(date)}
-                selectsEnd
-                startDate={startDate}
-                endDate={endDate}
-                minDate={startDate}
-                className="date-picker"
+        <div className="dashboard-header-actions">
+          <div className="filters-section">
+            <div className="filter-group">
+              <label>Date Range:</label>
+              <div className="date-range">
+                <DatePicker
+                  selected={startDate}
+                  onChange={date => setStartDate(date)}
+                  selectsStart
+                  startDate={startDate}
+                  endDate={endDate}
+                  className="date-picker"
+                />
+                <span>to</span>
+                <DatePicker
+                  selected={endDate}
+                  onChange={date => setEndDate(date)}
+                  selectsEnd
+                  startDate={startDate}
+                  endDate={endDate}
+                  minDate={startDate}
+                  className="date-picker"
+                />
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <label>Call Status:</label>
+              <select
+                value={callStatus}
+                onChange={handleCallStatusChange}
+                className="status-select"
+              >
+                <option value="all">All</option>
+                {callStatuses?.map((status, index) => (
+                  <option key={index} value={status?.name}>
+                    {status?.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Search Mobile:</label>
+              <input
+                type="text"
+                value={mobileSearch}
+                onChange={handleMobileSearch}
+                placeholder="Enter mobile number"
+                className="mobile-search"
               />
             </div>
           </div>
-
-          <div className="filter-group">
-            <label>Call Status:</label>
-            <select
-              value={callStatus}
-              onChange={handleCallStatusChange}
-              className="status-select"
-            >
-              <option value="all">All</option>
-              {callStatuses?.map((status, index) => (
-                <option key={index} value={status?.name}>
-                  {status?.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>Search Mobile:</label>
-            <input
-              type="text"
-              value={mobileSearch}
-              onChange={handleMobileSearch}
-              placeholder="Enter mobile number"
-              className="mobile-search"
-            />
-          </div>
+          <button 
+            className="add-lead-button"
+            onClick={() => navigate('/add-lead')}
+          >
+            Add New Lead
+          </button>
         </div>
 
         {error && <div className="error-message">{error}</div>}
 
-        <div className="stats-overview">
-          <div className="stat-card">
-            <h3>Total Leads</h3>
-            <p className="stat-number">{stats.totalLeads}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Active Leads</h3>
-            <p className="stat-number">{stats.activeLeads}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Pending Leads</h3>
-            <p className="stat-number">{stats.pendingLeads}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Completed Leads</h3>
-            <p className="stat-number">{stats.completedLeads}</p>
-          </div>
-        </div>
-
         <section className="leads-table">
           {loading ? (
             <div className="loading">Loading leads data...</div>
+          ) : filteredLeads.length === 0 ? (
+            <div className="no-data-found">
+              <div className="no-data-icon">📊</div>
+              <h3>No Leads Found</h3>
+              <p>There are no leads matching your current filters.</p>
+            </div>
           ) : (
             <div className="table-container">
               <table>
@@ -340,24 +363,31 @@ const Dashboard = () => {
                       <td>{lead.EmailId}</td>
                       <td>
                         <span className={`status-badge ${lead?.callstatus.toLowerCase()}`}>
-                          {lead.call_status}
+                          {lead.callstatus}
                         </span>
                       </td>
-                      <td>{new Date(lead.created_at).toLocaleDateString()}</td>
+                      <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
                       <td>
-                        <button className="action-button view">View</button>
-                        <button 
-                          className="action-button edit"
-                          onClick={() => handleEditClick(lead)}
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          className="action-button call"
-                          onClick={() => handleCallClick(lead.ContactNumber)}
-                        >
-                          Call
-                        </button>
+                        <div className="action-buttons">
+                          <button 
+                            className="action-button view"
+                            onClick={() => handleViewClick(lead)}
+                          >
+                            View
+                          </button>
+                          <button 
+                            className="action-button edit"
+                            onClick={() => handleEditClick(lead)}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            className="action-button call"
+                            onClick={() => handleCallClick(lead.ContactNumber)}
+                          >
+                            Call
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -432,11 +462,13 @@ const Dashboard = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Follow Up:</label>
+                  <label>Follow Up Date:</label>
                   <input
-                    type="text"
+                    type="date"
                     name="followup"
-                    value={editForm.followup}
+                    value={editForm.followup instanceof Date 
+                      ? editForm.followup.toISOString().split('T')[0]
+                      : editForm.followup}
                     onChange={handleEditFormChange}
                   />
                 </div>
@@ -490,6 +522,74 @@ const Dashboard = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* View Modal */}
+        {viewingLead && (
+          <div className="modal-overlay">
+            <div className="modal-content view-modal">
+              <h2>Lead Details</h2>
+              <div className="lead-details">
+                <div className="detail-group">
+                  <label>ID:</label>
+                  <span>{viewingLead.id}</span>
+                </div>
+                <div className="detail-group">
+                  <label>First Name:</label>
+                  <span>{viewingLead.FirstName}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Last Name:</label>
+                  <span>{viewingLead.LastName}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Email:</label>
+                  <span>{viewingLead.EmailId}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Contact Number:</label>
+                  <span>{viewingLead.ContactNumber}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Call Status:</label>
+                  <span>{viewingLead.callstatus}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Remarks:</label>
+                  <span>{viewingLead.remarks}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Follow Up:</label>
+                  <span>{viewingLead.followup}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Product Name:</label>
+                  <span>{viewingLead.productname}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Unit Type:</label>
+                  <span>{viewingLead.unittype}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Budget:</label>
+                  <span>{viewingLead.budget}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Created At:</label>
+                  <span>{new Date(viewingLead.created_at).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button 
+                  type="button" 
+                  className="cancel-button"
+                  onClick={() => setViewingLead(null)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}

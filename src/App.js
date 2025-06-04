@@ -9,6 +9,7 @@ import CreateUser from './pages/CreateUser';
 import AllUsers from './pages/AllUsers';
 import EditUser from './pages/EditUser';
 import OperatorReport from './pages/OperatorReport';
+import AddLead from './pages/AddLead';
 
 function App() {
   return (
@@ -64,6 +65,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/add-lead" element={<AddLead />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>

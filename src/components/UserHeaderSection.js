@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './UserHeaderSection.css';
+import goRealtorsLogo from './goRealtors.jpg';
 
 const UserHeaderSection = () => {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ const UserHeaderSection = () => {
   return (
     <div className="user-header">
       <div className="user-header-left">
-        <h1>User Dashboard</h1>
+        <img src={goRealtorsLogo} alt="Go Realtors" className="logo-image" />
       </div>
       <div className="user-header-right">
         <div className="user-info">
