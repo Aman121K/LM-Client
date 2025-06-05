@@ -25,25 +25,27 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        login(data.token, data.user);
-        if (data.user === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
+      const result = await login(formData.username, formData.password);
+      
+      if (result.success) {
+        // Convert userType to lowercase for consistent comparison
+        const userType = result.userType?.toLowerCase();
+        
+        // Navigate based on user type
+        switch (userType) {
+          case 'admin':
+            navigate('/admin');
+            break;
+          case 'user':
+          case 'tl':
+            navigate('/dashboard');
+            break;
+          default:
+            setError('Invalid user type');
+            break;
         }
       } else {
-        setError(data.message || 'Login failed');
+        setError(result.message || 'Login failed');
       }
     } catch (error) {
       setError('An error occurred during login');
@@ -51,6 +53,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
