@@ -30,6 +30,7 @@ const Login = () => {
       if (result.success) {
         // Convert userType to lowercase for consistent comparison
         const userType = result.userType?.toLowerCase();
+        console.log("user type in login page?>",userType)
         
         // Navigate based on user type
         switch (userType) {
@@ -37,8 +38,9 @@ const Login = () => {
             navigate('/admin');
             break;
           case 'user':
-          case 'tl':
             navigate('/dashboard');
+          case 'tl':
+            navigate('/TLdashboard');
             break;
           default:
             setError('Invalid user type');

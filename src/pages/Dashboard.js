@@ -224,6 +224,25 @@ const Dashboard = () => {
         ? editForm.followup.toISOString().split('T')[0]
         : editForm.followup;
 
+      // Check if call status is one of the closed statuses
+      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' || 
+                           editForm.callstatus === 'No Response - Lead Closed';
+
+      // Validate required fields based on call status
+      if (isClosedStatus) {
+        if (!editForm.remarks) {
+          setError('Remarks are required for closed leads');
+          return;
+        }
+      } else {
+        // Validate all required fields for active leads
+        if (!editForm.FirstName || !editForm.LastName || !editForm.ContactNumber || 
+            !editForm.callstatus || !editForm.remarks || !editForm.followup) {
+          setError('Please fill in all required fields');
+          return;
+        }
+      }
+
       const response = await fetch(`${BASE_URL}/leads/${editingLead.id}`, {
         method: 'PUT',
         headers: {
@@ -246,14 +265,12 @@ const Dashboard = () => {
       
       const data = await response.json();
       if (data.success) {
-        // Update the leads list with the edited lead
         setLoginUserCallStatus(prevLeads => 
           prevLeads.map(lead => 
             lead.id === editingLead.id ? { ...lead, ...editForm } : lead
           )
         );
-        setEditingLead(null); // Close the edit form
-        // Refresh the leads data
+        setEditingLead(null);
         fetchLoginUserCallStatus();
       } else {
         setError(data.message || 'Failed to update lead');
@@ -261,7 +278,24 @@ const Dashboard = () => {
     } catch (error) {
       setError('An error occurred while updating the lead');
     } finally {
-      setLoading(false);
+        setLoading(false);
+    }
+  };
+
+  // Add this new function to handle call status change in edit form
+  const handleEditCallStatusChange = (e) => {
+    const newStatus = e.target.value;
+    setEditForm(prev => ({
+      ...prev,
+      callstatus: newStatus
+    }));
+
+    // If status is closed, clear followup date
+    if (newStatus === 'Not Interested With Reason' || newStatus === 'No Response - Lead Closed') {
+      setEditForm(prev => ({
+        ...prev,
+        followup: ''
+      }));
     }
   };
 
@@ -287,14 +321,16 @@ const Dashboard = () => {
       setIsSearching(true);
       setError('');
 
-      const params = new URLSearchParams();
-      if (searchQuery.name) params.append('name', searchQuery.name);
-      if (searchQuery.contactNumber) params.append('contactNumber', searchQuery.contactNumber);
-
-      const response = await fetch(`${BASE_URL}/leads/search?${params.toString()}`, {
+      const response = await fetch(`${BASE_URL}/leads/search`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        body: JSON.stringify({
+          name: searchQuery.name,
+          contactNumber: searchQuery.contactNumber
+        })
       });
 
       const data = await response.json();
@@ -376,45 +412,47 @@ const Dashboard = () => {
                 className="mobile-search"
               />
             </div>
+          </div>
 
-            <div className="search-section">
-              <div className="search-inputs">
-                <div className="search-input-group">
-                  <input
-                    type="text"
-                    name="name"
-                    value={searchQuery.name}
-                    onChange={handleSearchInputChange}
-                    placeholder="Search by name"
-                    className="search-input"
-                  />
-                </div>
-                <div className="search-input-group">
-                  <input
-                    type="text"
-                    name="contactNumber"
-                    value={searchQuery.contactNumber}
-                    onChange={handleSearchInputChange}
-                    placeholder="Search by contact number"
-                    className="search-input"
-                  />
-                </div>
-                <div className="search-buttons">
-                  <button 
-                    className="search-button"
-                    onClick={handleSearch}
-                    disabled={isSearching}
-                  >
-                    {isSearching ? 'Searching...' : 'Search'}
-                  </button>
-                  <button 
-                    className="clear-button"
-                    onClick={handleClearSearch}
-                    disabled={isSearching}
-                  >
-                    Clear
-                  </button>
-                </div>
+          <div className="or-divider">Or</div>
+
+          <div className="search-section">
+            <div className="search-inputs">
+              <div className="search-input-group">
+                <input
+                  type="text"
+                  name="name"
+                  value={searchQuery.name}
+                  onChange={handleSearchInputChange}
+                  placeholder="Search by name"
+                  className="search-input"
+                />
+              </div>
+              <div className="search-input-group">
+                <input
+                  type="text"
+                  name="contactNumber"
+                  value={searchQuery.contactNumber}
+                  onChange={handleSearchInputChange}
+                  placeholder="Search by contact number"
+                  className="search-input"
+                />
+              </div>
+              <div className="search-buttons">
+                <button 
+                  className="search-button"
+                  onClick={handleSearch}
+                  disabled={isSearching}
+                >
+                  {isSearching ? 'Searching...' : 'Search'}
+                </button>
+                <button 
+                  className="clear-button"
+                  onClick={handleClearSearch}
+                  disabled={isSearching}
+                >
+                  Clear
+                </button>
               </div>
             </div>
           </div>
@@ -501,49 +539,14 @@ const Dashboard = () => {
               <h2>Edit Lead</h2>
               <form onSubmit={handleEditSubmit}>
                 <div className="form-group">
-                  <label>First Name:</label>
-                  <input
-                    type="text"
-                    name="FirstName"
-                    value={editForm.FirstName}
-                    onChange={handleEditFormChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Last Name:</label>
-                  <input
-                    type="text"
-                    name="LastName"
-                    value={editForm.LastName}
-                    onChange={handleEditFormChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Email:</label>
-                  <input
-                    type="email"
-                    name="EmailId"
-                    value={editForm.EmailId}
-                    onChange={handleEditFormChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Contact Number:</label>
-                  <input
-                    type="text"
-                    name="ContactNumber"
-                    value={editForm.ContactNumber}
-                    onChange={handleEditFormChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Call Status:</label>
+                  <label>Call Status: <span className="required">*</span></label>
                   <select
                     name="callstatus"
                     value={editForm.callstatus}
-                    onChange={handleEditFormChange}
+                    onChange={handleEditCallStatusChange}
+                    required
                   >
-                     <option value="all">To Be Called</option>
+                    <option value="">Select Call Status</option>
                     {callStatuses?.map((status, index) => (
                       <option key={index} value={status?.name}>
                         {status?.name}
@@ -551,64 +554,113 @@ const Dashboard = () => {
                     ))}
                   </select>
                 </div>
+
                 <div className="form-group">
-                  <label>Remarks:</label>
+                  <label>Remarks: <span className="required">*</span></label>
                   <textarea
                     name="remarks"
                     value={editForm.remarks}
                     onChange={handleEditFormChange}
+                    required
                   />
                 </div>
-                <div className="form-group">
-                  <label>Follow Up Date:</label>
-                  <input
-                    type="date"
-                    name="followup"
-                    value={editForm.followup instanceof Date 
-                      ? editForm.followup.toISOString().split('T')[0]
-                      : editForm.followup}
-                    onChange={handleEditFormChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Product Name:</label>
-                  <input
-                    type="text"
-                    name="productname"
-                    value={editForm.productname}
-                    onChange={handleEditFormChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Unit Type:</label>
-                  <select
-                    name="unittype"
-                    value={editForm.unittype}
-                    onChange={handleEditFormChange}
-                  >
-                    <option value="">Select Unit Type</option>
-                    {unitList.map((unit, index) => (
-                      <option key={index} value={unit.name}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Budget:</label>
-                  <select
-                    name="budget"
-                    value={editForm.budget}
-                    onChange={handleEditFormChange}
-                  >
-                    <option value="">Select Budget</option>
-                    {budgetList.map((budget, index) => (
-                      <option key={index} value={budget.name}>
-                        {budget.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+
+                {editForm.callstatus !== 'Not Interested With Reason' && 
+                 editForm.callstatus !== 'No Response - Lead Closed' && (
+                  <>
+                    <div className="form-group">
+                      <label>First Name: <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        name="FirstName"
+                        value={editForm.FirstName}
+                        onChange={handleEditFormChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Last Name: <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        name="LastName"
+                        value={editForm.LastName}
+                        onChange={handleEditFormChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Email:</label>
+                      <input
+                        type="email"
+                        name="EmailId"
+                        value={editForm.EmailId}
+                        onChange={handleEditFormChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Contact Number: <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        name="ContactNumber"
+                        value={editForm.ContactNumber}
+                        onChange={handleEditFormChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Follow Up Date: <span className="required">*</span></label>
+                      <input
+                        type="date"
+                        name="followup"
+                        value={editForm.followup instanceof Date 
+                          ? editForm.followup.toISOString().split('T')[0]
+                          : editForm.followup}
+                        onChange={handleEditFormChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Product Name:</label>
+                      <input
+                        type="text"
+                        name="productname"
+                        value={editForm.productname}
+                        onChange={handleEditFormChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Unit Type:</label>
+                      <select
+                        name="unittype"
+                        value={editForm.unittype}
+                        onChange={handleEditFormChange}
+                      >
+                        <option value="">Select Unit Type</option>
+                        {unitList.map((unit, index) => (
+                          <option key={index} value={unit.name}>
+                            {unit.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Budget:</label>
+                      <select
+                        name="budget"
+                        value={editForm.budget}
+                        onChange={handleEditFormChange}
+                      >
+                        <option value="">Select Budget</option>
+                        {budgetList.map((budget, index) => (
+                          <option key={index} value={budget.name}>
+                            {budget.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
                 <div className="modal-actions">
                   <button type="submit" className="submit-button">Update Lead</button>
                   <button 

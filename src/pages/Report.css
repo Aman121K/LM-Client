@@ -1,11 +1,11 @@
 .report-container {
-  padding: 2rem;
+  padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
 .report-header {
-  margin-bottom: 2rem;
+  margin-bottom: 20px;
 }
 
 .report-header h3 {
@@ -17,14 +17,14 @@
 .report-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
+  gap: 20px;
 }
 
 .report-card {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  padding: 15px;
 }
 
 .report-table {
@@ -34,15 +34,15 @@
 
 .report-table th,
 .report-table td {
-  padding: 1rem;
-  border: 1px solid #ddd;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
 }
 
 .table-header {
-  background-color: #f8f9fa;
-  color: #333;
-  font-weight: 600;
+  background-color: #f5f5f5;
+  padding: 10px;
   text-align: center;
+  font-weight: bold;
 }
 
 .text-center {
@@ -50,29 +50,62 @@
 }
 
 .loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 200px;
-  font-size: 1.2rem;
+  text-align: center;
+  padding: 20px;
+  font-size: 18px;
   color: #666;
 }
 
 .error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  padding: 1rem;
-  border-radius: 4px;
-  margin: 1rem 0;
+  color: #dc3545;
   text-align: center;
+  padding: 20px;
+  font-size: 16px;
 }
 
-@media (max-width: 768px) {
-  .report-container {
-    padding: 1rem;
-  }
+/* Date selection styles */
+.date-status-card {
+  cursor: pointer;
+}
 
+.date-row {
+  transition: background-color 0.2s;
+}
+
+.date-row:hover {
+  background-color: #f8f9fa;
+  cursor: pointer;
+}
+
+.date-row.selected {
+  background-color: #e3f2fd;
+  font-weight: bold;
+}
+
+.selected-date-status {
+  grid-column: 1 / -1;
+  margin-top: 20px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
   .report-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .report-card {
+    margin-bottom: 15px;
   }
 } 
