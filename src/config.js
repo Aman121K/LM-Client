@@ -2,7 +2,7 @@
 const config = {
     // Development environment
     development: {
-        // BASE_URL: 'https://lm-server-pmuo.onrender.com/api'
+        // BASE_URL: 'http://localhost:5000/api',
         BASE_URL: 'https://lm-server-pmuo.onrender.com/api'
     },
     // Production environment

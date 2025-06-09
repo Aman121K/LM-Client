@@ -10,6 +10,8 @@ import AllUsers from './pages/AllUsers';
 import EditUser from './pages/EditUser';
 import OperatorReport from './pages/OperatorReport';
 import AddLead from './pages/AddLead';
+import Report from './pages/Report';
+import Upload from './pages/Upload';
 
 function App() {
   return (
@@ -65,6 +67,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <Upload />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/report" element={<Report />} />
           <Route path="/add-lead" element={<AddLead />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>

@@ -16,13 +16,22 @@ const UserHeaderSection = () => {
   return (
     <div className="user-header">
       <div className="user-header-left">
-        <img src={goRealtorsLogo} alt="Go Realtors" className="logo-image" />
+        <img 
+          src={goRealtorsLogo} 
+          alt="Go Realtors" 
+          className="logo-image" 
+          onClick={() => navigate('/dashboard')}
+          style={{ cursor: 'pointer' }}
+        />
       </div>
       <div className="user-header-right">
         <div className="user-info">
           <span className="username">Welcome, {user || 'User'}</span>
         </div>
         <div className="user-actions">
+          <button onClick={() => navigate('/report')} className="action-btn">
+            Reports
+          </button>
           <button onClick={handleLogout} className="logout-btn">
             Logout
           </button>

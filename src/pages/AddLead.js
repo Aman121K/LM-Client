@@ -22,7 +22,8 @@ const AddLead = () => {
     followup: new Date().toISOString().split('T')[0],
     productname: '',
     unittype: '',
-    budget: ''
+    budget: '',
+    callBy:'vikas1'
   });
 
   useEffect(() => {

@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
-  const [startDate, setStartDate] = useState(new Date());
+ const [startDate, setStartDate] = useState(new Date('2025-05-01'));
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('All');
   const [mobileSearch, setMobileSearch] = useState('');
@@ -41,6 +41,12 @@ const Dashboard = () => {
   const [unitList, setUnitList] = useState([]);
   const [viewingLead, setViewingLead] = useState(null);
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState({
+    name: '',
+    contactNumber: ''
+  });
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     fetchCallStatuses();
@@ -263,6 +269,56 @@ const Dashboard = () => {
     setViewingLead(lead);
   };
 
+  const handleSearchInputChange = (e) => {
+    const { name, value } = e.target;
+    setSearchQuery(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.name && !searchQuery.contactNumber) {
+      setError('Please enter either name or contact number to search');
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      setError('');
+
+      const params = new URLSearchParams();
+      if (searchQuery.name) params.append('name', searchQuery.name);
+      if (searchQuery.contactNumber) params.append('contactNumber', searchQuery.contactNumber);
+
+      const response = await fetch(`${BASE_URL}/leads/search?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSearchResults(data.data.leads);
+        setLoginUserCallStatus(data.data.leads); // Update the main leads list with search results
+      } else {
+        setError(data.message || 'Search failed');
+        setSearchResults([]);
+      }
+    } catch (error) {
+      setError('An error occurred while searching');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery({ name: '', contactNumber: '' });
+    setSearchResults([]);
+    fetchLoginUserCallStatus(); // Reset to original data
+  };
+
   return (
     <div className="dashboard-container">
       <UserHeaderSection />
@@ -319,6 +375,47 @@ const Dashboard = () => {
                 placeholder="Enter mobile number"
                 className="mobile-search"
               />
+            </div>
+
+            <div className="search-section">
+              <div className="search-inputs">
+                <div className="search-input-group">
+                  <input
+                    type="text"
+                    name="name"
+                    value={searchQuery.name}
+                    onChange={handleSearchInputChange}
+                    placeholder="Search by name"
+                    className="search-input"
+                  />
+                </div>
+                <div className="search-input-group">
+                  <input
+                    type="text"
+                    name="contactNumber"
+                    value={searchQuery.contactNumber}
+                    onChange={handleSearchInputChange}
+                    placeholder="Search by contact number"
+                    className="search-input"
+                  />
+                </div>
+                <div className="search-buttons">
+                  <button 
+                    className="search-button"
+                    onClick={handleSearch}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? 'Searching...' : 'Search'}
+                  </button>
+                  <button 
+                    className="clear-button"
+                    onClick={handleClearSearch}
+                    disabled={isSearching}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <button 
@@ -446,6 +543,7 @@ const Dashboard = () => {
                     value={editForm.callstatus}
                     onChange={handleEditFormChange}
                   >
+                     <option value="all">To Be Called</option>
                     {callStatuses?.map((status, index) => (
                       <option key={index} value={status?.name}>
                         {status?.name}
