@@ -141,7 +141,7 @@ const AddLead = () => {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="form-group">
-              <label>First Name:</label>
+              <label>First Name: <span className="required">*</span></label>
               <input
                 type="text"
                 name="FirstName"
@@ -158,12 +158,11 @@ const AddLead = () => {
                 name="LastName"
                 value={formData.LastName}
                 onChange={handleInputChange}
-                required
               />
             </div>
 
             <div className="form-group">
-              <label>Email:</label>
+              <label>Email: <span className="required">*</span></label>
               <input
                 type="email"
                 name="EmailId"
@@ -174,7 +173,7 @@ const AddLead = () => {
             </div>
 
             <div className="form-group">
-              <label>Contact Number:</label>
+              <label>Contact Number: <span className="required">*</span></label>
               <input
                 type="tel"
                 name="ContactNumber"
@@ -185,7 +184,7 @@ const AddLead = () => {
             </div>
 
             <div className="form-group">
-              <label>Call Status:</label>
+              <label>Call Status: <span className="required">*</span></label>
               <select
                 name="callstatus"
                 value={formData.callstatus}
@@ -202,7 +201,7 @@ const AddLead = () => {
             </div>
 
             <div className="form-group">
-              <label>Follow Up Date:</label>
+              <label>Follow Up Date: <span className="required">*</span></label>
               <input
                 type="date"
                 name="followup"
@@ -213,21 +212,23 @@ const AddLead = () => {
             </div>
 
             <div className="form-group">
-              <label>Product Name:</label>
+              <label>Product Name: <span className="required">*</span></label>
               <input
                 type="text"
                 name="productname"
                 value={formData.productname}
                 onChange={handleInputChange}
+                required
               />
             </div>
 
             <div className="form-group">
-              <label>Unit Type:</label>
+              <label>Unit Type: <span className="required">*</span></label>
               <select
                 name="unittype"
                 value={formData.unittype}
                 onChange={handleInputChange}
+                required
               >
                 <option value="">Select Unit Type</option>
                 {unitList.map((unit, index) => (
@@ -239,11 +240,12 @@ const AddLead = () => {
             </div>
 
             <div className="form-group">
-              <label>Budget:</label>
+              <label>Budget: <span className="required">*</span></label>
               <select
                 name="budget"
                 value={formData.budget}
                 onChange={handleInputChange}
+                required
               >
                 <option value="">Select Budget</option>
                 {budgetList.map((budget, index) => (
@@ -255,12 +257,13 @@ const AddLead = () => {
             </div>
 
             <div className="form-group full-width">
-              <label>Remarks:</label>
+              <label>Remarks: <span className="required">*</span></label>
               <textarea
                 name="remarks"
                 value={formData.remarks}
                 onChange={handleInputChange}
                 rows="4"
+                required
               />
             </div>
           </div>

@@ -226,7 +226,8 @@ const Dashboard = () => {
 
       // Check if call status is one of the closed statuses
       const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' || 
-                           editForm.callstatus === 'No Response - Lead Closed';
+                           editForm.callstatus === 'No Response-Lead Closed' || 
+                           editForm.callstatus === 'Not Qualified';
 
       // Validate required fields based on call status
       if (isClosedStatus) {
@@ -402,7 +403,7 @@ const Dashboard = () => {
               </select>
             </div>
 
-            <div className="filter-group">
+            {/* <div className="filter-group">
               <label>Search Mobile:</label>
               <input
                 type="text"
@@ -411,7 +412,7 @@ const Dashboard = () => {
                 placeholder="Enter mobile number"
                 className="mobile-search"
               />
-            </div>
+            </div> */}
           </div>
 
           <div className="or-divider">Or</div>
@@ -566,7 +567,8 @@ const Dashboard = () => {
                 </div>
 
                 {editForm.callstatus !== 'Not Interested With Reason' && 
-                 editForm.callstatus !== 'No Response - Lead Closed' && (
+                 editForm.callstatus !== 'No Response-Lead Closed' && 
+                 editForm.callstatus !== 'Not Qualified' && (
                   <>
                     <div className="form-group">
                       <label>First Name: <span className="required">*</span></label>
@@ -579,13 +581,13 @@ const Dashboard = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Last Name: <span className="required">*</span></label>
+                      <label>Last Name: </label>
                       <input
                         type="text"
                         name="LastName"
                         value={editForm.LastName}
                         onChange={handleEditFormChange}
-                        required
+                        // required
                       />
                     </div>
                     <div className="form-group">
