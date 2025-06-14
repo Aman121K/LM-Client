@@ -9,7 +9,8 @@ import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
- const [startDate, setStartDate] = useState(new Date('2025-05-01'));
+  console.log("users is>>", user)
+  const [startDate, setStartDate] = useState(new Date('2025-05-01'));
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('All');
   const [mobileSearch, setMobileSearch] = useState('');
@@ -57,7 +58,7 @@ const Dashboard = () => {
 
   const fetchCallStatuses = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/leads/allCallStatus`, {
+      const response = await fetch(`${BASE_URL}/leads/call-statuses?callBy=${user}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -80,7 +81,7 @@ const Dashboard = () => {
     try {
       setLoading(true);
       console.log("user>>>>>>>>", user);
-      
+
       // Format dates to YYYY-MM-DD without time
       const formatDate = (date) => {
         const d = new Date(date);
@@ -220,14 +221,14 @@ const Dashboard = () => {
     try {
       setLoading(true);
       // Format the followup date to YYYY-MM-DD
-      const formattedFollowup = editForm.followup instanceof Date 
+      const formattedFollowup = editForm.followup instanceof Date
         ? editForm.followup.toISOString().split('T')[0]
         : editForm.followup;
 
       // Check if call status is one of the closed statuses
-      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' || 
-                           editForm.callstatus === 'No Response-Lead Closed' || 
-                           editForm.callstatus === 'Not Qualified';
+      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' ||
+        editForm.callstatus === 'No Response-Lead Closed' ||
+        editForm.callstatus === 'Not Qualified';
 
       // Validate required fields based on call status
       if (isClosedStatus) {
@@ -237,8 +238,8 @@ const Dashboard = () => {
         }
       } else {
         // Validate all required fields for active leads
-        if (!editForm.FirstName || !editForm.LastName || !editForm.ContactNumber || 
-            !editForm.callstatus || !editForm.remarks || !editForm.followup) {
+        if (!editForm.FirstName || !editForm.ContactNumber ||
+          !editForm.callstatus || !editForm.remarks || !editForm.followup) {
           setError('Please fill in all required fields');
           return;
         }
@@ -263,11 +264,11 @@ const Dashboard = () => {
           budget: editForm.budget
         })
       });
-      
+
       const data = await response.json();
       if (data.success) {
-        setLoginUserCallStatus(prevLeads => 
-          prevLeads.map(lead => 
+        setLoginUserCallStatus(prevLeads =>
+          prevLeads.map(lead =>
             lead.id === editingLead.id ? { ...lead, ...editForm } : lead
           )
         );
@@ -279,7 +280,7 @@ const Dashboard = () => {
     } catch (error) {
       setError('An error occurred while updating the lead');
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -440,14 +441,14 @@ const Dashboard = () => {
                 />
               </div>
               <div className="search-buttons">
-                <button 
+                <button
                   className="search-button"
                   onClick={handleSearch}
                   disabled={isSearching}
                 >
                   {isSearching ? 'Searching...' : 'Search'}
                 </button>
-                <button 
+                <button
                   className="clear-button"
                   onClick={handleClearSearch}
                   disabled={isSearching}
@@ -457,7 +458,7 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-          <button 
+          <button
             className="add-lead-button"
             onClick={() => navigate('/add-lead')}
           >
@@ -505,19 +506,19 @@ const Dashboard = () => {
                       <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
                       <td>
                         <div className="action-buttons">
-                          <button 
+                          <button
                             className="action-button view"
                             onClick={() => handleViewClick(lead)}
                           >
                             View
                           </button>
-                          <button 
+                          <button
                             className="action-button edit"
                             onClick={() => handleEditClick(lead)}
                           >
                             Edit
                           </button>
-                          <button 
+                          <button
                             className="action-button call"
                             onClick={() => handleCallClick(lead.ContactNumber)}
                           >
@@ -566,107 +567,106 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {editForm.callstatus !== 'Not Interested With Reason' && 
-                 editForm.callstatus !== 'No Response-Lead Closed' && 
-                 editForm.callstatus !== 'Not Qualified' && (
-                  <>
-                    <div className="form-group">
-                      <label>First Name: <span className="required">*</span></label>
-                      <input
-                        type="text"
-                        name="FirstName"
-                        value={editForm.FirstName}
-                        onChange={handleEditFormChange}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Last Name: </label>
-                      <input
-                        type="text"
-                        name="LastName"
-                        value={editForm.LastName}
-                        onChange={handleEditFormChange}
-                        // required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Email:</label>
-                      <input
-                        type="email"
-                        name="EmailId"
-                        value={editForm.EmailId}
-                        onChange={handleEditFormChange}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Contact Number: <span className="required">*</span></label>
-                      <input
-                        type="text"
-                        name="ContactNumber"
-                        value={editForm.ContactNumber}
-                        onChange={handleEditFormChange}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Follow Up Date: <span className="required">*</span></label>
-                      <input
-                        type="date"
-                        name="followup"
-                        value={editForm.followup instanceof Date 
-                          ? editForm.followup.toISOString().split('T')[0]
-                          : editForm.followup}
-                        onChange={handleEditFormChange}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Product Name:</label>
-                      <input
-                        type="text"
-                        name="productname"
-                        value={editForm.productname}
-                        onChange={handleEditFormChange}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Unit Type:</label>
-                      <select
-                        name="unittype"
-                        value={editForm.unittype}
-                        onChange={handleEditFormChange}
-                      >
-                        <option value="">Select Unit Type</option>
-                        {unitList.map((unit, index) => (
-                          <option key={index} value={unit.name}>
-                            {unit.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Budget:</label>
-                      <select
-                        name="budget"
-                        value={editForm.budget}
-                        onChange={handleEditFormChange}
-                      >
-                        <option value="">Select Budget</option>
-                        {budgetList.map((budget, index) => (
-                          <option key={index} value={budget.name}>
-                            {budget.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </>
-                )}
+                {editForm.callstatus !== 'Not Interested With Reason' &&
+                  editForm.callstatus !== 'No Response-Lead Closed' &&
+                  editForm.callstatus !== 'Not Qualified' && (
+                    <>
+                      <div className="form-group">
+                        <label>First Name: <span className="required">*</span></label>
+                        <input
+                          type="text"
+                          name="FirstName"
+                          value={editForm.FirstName}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Last Name:</label>
+                        <input
+                          type="text"
+                          name="LastName"
+                          value={editForm.LastName}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Email:</label>
+                        <input
+                          type="email"
+                          name="EmailId"
+                          value={editForm.EmailId}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Contact Number: <span className="required">*</span></label>
+                        <input
+                          type="text"
+                          name="ContactNumber"
+                          value={editForm.ContactNumber}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Follow Up Date: <span className="required">*</span></label>
+                        <input
+                          type="date"
+                          name="followup"
+                          value={editForm.followup instanceof Date
+                            ? editForm.followup.toISOString().split('T')[0]
+                            : editForm.followup}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Product Name:</label>
+                        <input
+                          type="text"
+                          name="productname"
+                          value={editForm.productname}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Unit Type:</label>
+                        <select
+                          name="unittype"
+                          value={editForm.unittype}
+                          onChange={handleEditFormChange}
+                        >
+                          <option value="">Select Unit Type</option>
+                          {unitList.map((unit, index) => (
+                            <option key={index} value={unit.name}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Budget:</label>
+                        <select
+                          name="budget"
+                          value={editForm.budget}
+                          onChange={handleEditFormChange}
+                        >
+                          <option value="">Select Budget</option>
+                          {budgetList.map((budget, index) => (
+                            <option key={index} value={budget.name}>
+                              {budget.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
 
                 <div className="modal-actions">
                   <button type="submit" className="submit-button">Update Lead</button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="cancel-button"
                     onClick={() => setEditingLead(null)}
                   >
@@ -734,8 +734,8 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="modal-actions">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="cancel-button"
                   onClick={() => setViewingLead(null)}
                 >
