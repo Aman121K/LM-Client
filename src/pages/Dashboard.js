@@ -18,6 +18,7 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const [leads, setLeads] = useState([]);
   const [callStatuses, setCallStatuses] = useState([]);
+  const [allCallStatuses, setAllCallStatuses] = useState([]);
   const [loginUserCallStatus, setLoginUserCallStatus] = useState([]);
   const [stats, setStats] = useState({
     totalLeads: 0,
@@ -51,6 +52,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchCallStatuses();
+    fetchAllCallStatuses();
     fetchLoginUserCallStatus();
     fetchBudgetList();
     fetchUnitList();
@@ -72,6 +74,25 @@ const Dashboard = () => {
       }
     } catch (error) {
       setError('An error occurred while fetching call statuses');
+    }
+  };
+
+  const fetchAllCallStatuses = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/leads/allCallStatus`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setAllCallStatuses(data?.data);
+      } else {
+        setError(data.message || 'Failed to fetch all call statuses');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching all call statuses');
     }
   };
 
@@ -226,9 +247,12 @@ const Dashboard = () => {
         : editForm.followup;
 
       // Check if call status is one of the closed statuses
-      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' ||
-        editForm.callstatus === 'No Response-Lead Closed' ||
-        editForm.callstatus === 'Not Qualified';
+      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' || 
+                           editForm.callstatus === 'No Response-Lead Closed' || 
+                           editForm.callstatus === 'Not Qualified' ||
+                           editForm.callstatus === 'Number Not Answered - 3rd call' ||
+                           editForm.callstatus === 'Number Not Answered - 2nd call' ||
+                           editForm.callstatus === 'Number Not Answered';
 
       // Validate required fields based on call status
       if (isClosedStatus) {
@@ -238,8 +262,8 @@ const Dashboard = () => {
         }
       } else {
         // Validate all required fields for active leads
-        if (!editForm.FirstName || !editForm.ContactNumber ||
-          !editForm.callstatus || !editForm.remarks || !editForm.followup) {
+        if (!editForm.FirstName || !editForm.ContactNumber || 
+            !editForm.callstatus || !editForm.remarks || !editForm.followup) {
           setError('Please fill in all required fields');
           return;
         }
@@ -292,8 +316,13 @@ const Dashboard = () => {
       callstatus: newStatus
     }));
 
-    // If status is closed, clear followup date
-    if (newStatus === 'Not Interested With Reason' || newStatus === 'No Response - Lead Closed') {
+    // If status is closed or number not answered, clear followup date
+    if (newStatus === 'Not Interested With Reason' || 
+        newStatus === 'No Response-Lead Closed' ||
+        newStatus === 'Not Qualified' ||
+        newStatus === 'Number Not Answered - 3rd call' ||
+        newStatus === 'Number Not Answered - 2nd call' ||
+        newStatus === 'Number Not Answered') {
       setEditForm(prev => ({
         ...prev,
         followup: ''
@@ -549,7 +578,7 @@ const Dashboard = () => {
                     required
                   >
                     <option value="">Select Call Status</option>
-                    {callStatuses?.map((status, index) => (
+                    {allCallStatuses?.map((status, index) => (
                       <option key={index} value={status?.name}>
                         {status?.name}
                       </option>
@@ -567,101 +596,104 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {editForm.callstatus !== 'Not Interested With Reason' &&
-                  editForm.callstatus !== 'No Response-Lead Closed' &&
-                  editForm.callstatus !== 'Not Qualified' && (
-                    <>
-                      <div className="form-group">
-                        <label>First Name: <span className="required">*</span></label>
-                        <input
-                          type="text"
-                          name="FirstName"
-                          value={editForm.FirstName}
-                          onChange={handleEditFormChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Last Name:</label>
-                        <input
-                          type="text"
-                          name="LastName"
-                          value={editForm.LastName}
-                          onChange={handleEditFormChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Email:</label>
-                        <input
-                          type="email"
-                          name="EmailId"
-                          value={editForm.EmailId}
-                          onChange={handleEditFormChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Contact Number: <span className="required">*</span></label>
-                        <input
-                          type="text"
-                          name="ContactNumber"
-                          value={editForm.ContactNumber}
-                          onChange={handleEditFormChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Follow Up Date: <span className="required">*</span></label>
-                        <input
-                          type="date"
-                          name="followup"
-                          value={editForm.followup instanceof Date
-                            ? editForm.followup.toISOString().split('T')[0]
-                            : editForm.followup}
-                          onChange={handleEditFormChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Product Name:</label>
-                        <input
-                          type="text"
-                          name="productname"
-                          value={editForm.productname}
-                          onChange={handleEditFormChange}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Unit Type:</label>
-                        <select
-                          name="unittype"
-                          value={editForm.unittype}
-                          onChange={handleEditFormChange}
-                        >
-                          <option value="">Select Unit Type</option>
-                          {unitList.map((unit, index) => (
-                            <option key={index} value={unit.name}>
-                              {unit.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>Budget:</label>
-                        <select
-                          name="budget"
-                          value={editForm.budget}
-                          onChange={handleEditFormChange}
-                        >
-                          <option value="">Select Budget</option>
-                          {budgetList.map((budget, index) => (
-                            <option key={index} value={budget.name}>
-                              {budget.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
+                {editForm.callstatus !== 'Not Interested With Reason' && 
+                 editForm.callstatus !== 'No Response-Lead Closed' && 
+                 editForm.callstatus !== 'Not Qualified' &&
+                 editForm.callstatus !== 'Number Not Answered - 3rd call' &&
+                 editForm.callstatus !== 'Number Not Answered - 2nd call' &&
+                 editForm.callstatus !== 'Number Not Answered' && (
+                  <>
+                    <div className="form-group">
+                      <label>First Name: <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        name="FirstName"
+                        value={editForm.FirstName}
+                        onChange={handleEditFormChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Last Name:</label>
+                      <input
+                        type="text"
+                        name="LastName"
+                        value={editForm.LastName}
+                        onChange={handleEditFormChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Email:</label>
+                      <input
+                        type="email"
+                        name="EmailId"
+                        value={editForm.EmailId}
+                        onChange={handleEditFormChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Contact Number: <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        name="ContactNumber"
+                        value={editForm.ContactNumber}
+                        onChange={handleEditFormChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Follow Up Date: <span className="required">*</span></label>
+                      <input
+                        type="date"
+                        name="followup"
+                        value={editForm.followup instanceof Date
+                          ? editForm.followup.toISOString().split('T')[0]
+                          : editForm.followup}
+                        onChange={handleEditFormChange}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Product Name:</label>
+                      <input
+                        type="text"
+                        name="productname"
+                        value={editForm.productname}
+                        onChange={handleEditFormChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Unit Type:</label>
+                      <select
+                        name="unittype"
+                        value={editForm.unittype}
+                        onChange={handleEditFormChange}
+                      >
+                        <option value="">Select Unit Type</option>
+                        {unitList.map((unit, index) => (
+                          <option key={index} value={unit.name}>
+                            {unit.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Budget:</label>
+                      <select
+                        name="budget"
+                        value={editForm.budget}
+                        onChange={handleEditFormChange}
+                      >
+                        <option value="">Select Budget</option>
+                        {budgetList.map((budget, index) => (
+                          <option key={index} value={budget.name}>
+                            {budget.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
 
                 <div className="modal-actions">
                   <button type="submit" className="submit-button">Update Lead</button>

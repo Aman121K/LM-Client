@@ -13,6 +13,10 @@ const UserHeaderSection = () => {
     navigate('/login');
   };
 
+  const handleBrochuresClick = () => {
+    window.open('https://drive.google.com/drive/folders/1-PJ-dHRMbzKurFNlS4GrLY1r-t6ZkuFQ', '_blank');
+  };
+
   return (
     <div className="user-header">
       <div className="user-header-left">
@@ -29,6 +33,9 @@ const UserHeaderSection = () => {
           <span className="username">Welcome, {user || 'User'}</span>
         </div>
         <div className="user-actions">
+          <button onClick={handleBrochuresClick} className="action-btn brochures-btn">
+            Show Brochures Details
+          </button>
           <button onClick={() => navigate('/report')} className="action-btn">
             Reports
           </button>
