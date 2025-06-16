@@ -511,10 +511,10 @@ const Dashboard = () => {
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    {/* <th>ID</th> */}
                     <th>Name</th>
                     <th>Mobile</th>
-                    <th>Email</th>
+                    {/* <th>Email</th> */}
                     <th>Call Status</th>
                     <th>Date</th>
                     <th>Actions</th>
@@ -523,10 +523,10 @@ const Dashboard = () => {
                 <tbody>
                   {filteredLeads.map(lead => (
                     <tr key={lead.id}>
-                      <td>{lead.id}</td>
+                      {/* <td>{lead.id}</td> */}
                       <td>{lead.FirstName}</td>
                       <td>{lead.ContactNumber}</td>
-                      <td>{lead.EmailId}</td>
+                      {/* <td>{lead.EmailId}</td> */}
                       <td>
                         <span className={`status-badge ${lead?.callstatus.toLowerCase()}`}>
                           {lead.callstatus}
