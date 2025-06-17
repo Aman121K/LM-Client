@@ -20,6 +20,7 @@ const Dashboard = () => {
   const [callStatuses, setCallStatuses] = useState([]);
   const [allCallStatuses, setAllCallStatuses] = useState([]);
   const [loginUserCallStatus, setLoginUserCallStatus] = useState([]);
+  const [tlUsers, setTlUsers] = useState([]);
   const [stats, setStats] = useState({
     totalLeads: 0,
     activeLeads: 0,
@@ -37,7 +38,8 @@ const Dashboard = () => {
     followup: '',
     productname: '',
     unittype: '',
-    budget: ''
+    budget: '',
+    assignedTo: ''
   });
   const [budgetList, setBudgetList] = useState([]);
   const [unitList, setUnitList] = useState([]);
@@ -56,6 +58,7 @@ const Dashboard = () => {
     fetchLoginUserCallStatus();
     fetchBudgetList();
     fetchUnitList();
+    fetchTlUsers();
   }, [startDate, endDate, callStatus, mobileSearch, user]);
 
   const fetchCallStatuses = async () => {
@@ -189,6 +192,25 @@ const Dashboard = () => {
     }
   };
 
+  const fetchTlUsers = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/users/tl`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setTlUsers(data.data || []);
+      } else {
+        setError(data.message || 'Failed to fetch TL users');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching TL users');
+    }
+  };
+
   const handleCallStatusChange = (e) => {
     console.log("selected data>>", e?.target?.value);
     const selectedStatus = e.target.value;
@@ -225,7 +247,8 @@ const Dashboard = () => {
       followup: lead.followup ? new Date(lead.followup) : new Date(),
       productname: lead.productname || '',
       unittype: lead.unittype || '',
-      budget: lead.budget || ''
+      budget: lead.budget || '',
+      assignedTo: lead.assignedTo || ''
     });
   };
 
@@ -285,7 +308,8 @@ const Dashboard = () => {
           followup: formattedFollowup,
           productname: editForm.productname,
           unittype: editForm.unittype,
-          budget: editForm.budget
+          budget: editForm.budget,
+          assignedTo: editForm.assignedTo
         })
       });
 
@@ -516,6 +540,7 @@ const Dashboard = () => {
                     <th>Mobile</th>
                     {/* <th>Email</th> */}
                     <th>Call Status</th>
+                    <th>Assigned To</th>
                     <th>Date</th>
                     <th>Actions</th>
                   </tr>
@@ -532,6 +557,7 @@ const Dashboard = () => {
                           {lead.callstatus}
                         </span>
                       </td>
+                      <td>{lead.assignedTo || 'Not Assigned'}</td>
                       <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
                       <td>
                         <div className="action-buttons">
@@ -695,6 +721,22 @@ const Dashboard = () => {
                   </>
                 )}
 
+                <div className="form-group">
+                  <label>Assigned To:</label>
+                  <select
+                    name="assignedTo"
+                    value={editForm.assignedTo}
+                    onChange={handleEditFormChange}
+                  >
+                    <option value="">Select TL</option>
+                    {tlUsers.map((tl, index) => (
+                      <option key={index} value={tl.Username}>
+                        {tl.Username}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="modal-actions">
                   <button type="submit" className="submit-button">Update Lead</button>
                   <button
@@ -759,6 +801,10 @@ const Dashboard = () => {
                 <div className="detail-group">
                   <label>Budget:</label>
                   <span>{viewingLead.budget}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Assigned To:</label>
+                  <span>{viewingLead.assignedTo || 'Not Assigned'}</span>
                 </div>
                 <div className="detail-group">
                   <label>Created At:</label>

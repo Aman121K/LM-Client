@@ -13,6 +13,7 @@ import AddLead from './pages/AddLead';
 import Report from './pages/Report';
 import Upload from './pages/Upload';
 import TLDashboard from './pages/TLDashboard';
+import ResaleLeads from './pages/ResaleLeads';
 
 // Create a separate component for routes that uses useAuth
 const AppRoutes = () => {
@@ -30,7 +31,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-       <Route
+      <Route
         path="/TLdashboard"
         element={
           <ProtectedRoute>
@@ -86,6 +87,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route path="/resale-leads" element={<ResaleLeads />} />
       <Route path="/report" element={<Report />} />
       <Route path="/add-lead" element={<AddLead />} />
       <Route path="*" element={<Navigate to="/login" replace />} />

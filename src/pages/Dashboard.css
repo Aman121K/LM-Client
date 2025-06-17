@@ -751,4 +751,81 @@ th {
   .clear-button {
     flex: 1;
   }
+}
+
+.pending-calls-section {
+  padding: 20px;
+  margin-bottom: 30px;
+}
+
+.pending-calls-card {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pending-calls-card h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.pending-calls-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: transform 0.2s;
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.stat-value.pending {
+  color: #ffc107;
+}
+
+.stat-value.completed {
+  color: #28a745;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .pending-calls-section {
+    padding: 10px;
+  }
+
+  .pending-calls-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-item {
+    padding: 10px;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
 } 
