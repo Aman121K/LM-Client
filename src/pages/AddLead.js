@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '../config';
 import './AddLead.css';
 import UserHeaderSection from '../components/UserHeaderSection';
+import { useAuth } from '../context/AuthContext';
 
 const AddLead = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [callStatuses, setCallStatuses] = useState([]);
@@ -23,14 +25,21 @@ const AddLead = () => {
     productname: '',
     unittype: '',
     budget: '',
-    callBy:'vikas1'
+    callBy: user || ''
   });
 
   useEffect(() => {
+    // Update callBy when user is available
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        callBy: user
+      }));
+    }
     fetchCallStatuses();
     fetchBudgetList();
     fetchUnitList();
-  }, []);
+  }, [user]);
 
   const fetchCallStatuses = async () => {
     try {
@@ -162,13 +171,13 @@ const AddLead = () => {
             </div>
 
             <div className="form-group">
-              <label>Email: <span className="required">*</span></label>
+              <label>Email</label>
               <input
                 type="email"
                 name="EmailId"
                 value={formData.EmailId}
                 onChange={handleInputChange}
-                required
+                // required
               />
             </div>
 

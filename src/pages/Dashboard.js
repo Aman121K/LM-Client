@@ -680,7 +680,7 @@ const Dashboard = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Product Name:</label>
+                      <label>Product Name:<span className="required">*</span></label>
                       <input
                         type="text"
                         name="productname"
@@ -689,7 +689,7 @@ const Dashboard = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Unit Type:</label>
+                      <label>Unit Type:<span className="required">*</span></label>
                       <select
                         name="unittype"
                         value={editForm.unittype}
@@ -704,7 +704,7 @@ const Dashboard = () => {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label>Budget:</label>
+                      <label>Budget:<span className="required">*</span></label>
                       <select
                         name="budget"
                         value={editForm.budget}
