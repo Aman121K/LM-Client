@@ -531,6 +531,11 @@ const Dashboard = () => {
               <p>There are no leads matching your current filters.</p>
             </div>
           ) : (
+            <>
+            <div className="lead-count-badge">
+              <span className="lead-count-label">Leads Found</span>
+              <span className="lead-count-number">{filteredLeads.length}</span>
+            </div>
             <div className="table-container">
               <table>
                 <thead>
@@ -586,6 +591,7 @@ const Dashboard = () => {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </section>
 
