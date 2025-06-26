@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '../config';
 import './CreateUser.css';
-
+import AdminHeaderSection from '../components/AdminHeaderSection';
 const CreateUser = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -104,7 +104,11 @@ const CreateUser = () => {
   };
 
   return (
+    <>
+     <AdminHeaderSection />
+  
     <div className="create-user-container">
+      
       <div className="create-user-box">
         <div className="header-actions">
           <h1>Create New User</h1>
@@ -247,6 +251,7 @@ const CreateUser = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

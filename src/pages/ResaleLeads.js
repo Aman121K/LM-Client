@@ -117,6 +117,7 @@ const ResaleLeads = () => {
                     <p><strong>Product:</strong> {lead.productname || 'N/A'}</p>
                     <p><strong>Remarks:</strong> {lead.remarks || 'N/A'}</p>
                     <p><strong>Assigned TL:</strong> {lead.assign_tl || 'Not Assigned'}</p>
+                    <p><strong>Call By:</strong> {lead.callby || 'Not Assigned'}</p>
                     <p><strong>Created:</strong> {new Date(lead.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>

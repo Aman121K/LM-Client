@@ -545,7 +545,7 @@ const Dashboard = () => {
                     <th>Mobile</th>
                     {/* <th>Email</th> */}
                     <th>Call Status</th>
-                    <th>Assigned To</th>
+                    <th>Product Name</th>
                     <th>Date</th>
                     <th>Actions</th>
                   </tr>
@@ -562,7 +562,7 @@ const Dashboard = () => {
                           {lead.callstatus}
                         </span>
                       </td>
-                      <td>{lead.assignedTo || 'Not Assigned'}</td>
+                      <td>{lead.productname}</td>
                       <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
                       <td>
                         <div className="action-buttons">
@@ -728,7 +728,7 @@ const Dashboard = () => {
                 )}
 
                 <div className="form-group">
-                  <label>Assigned To:</label>
+                  <label>Product Name:</label>
                   <select
                     name="assignedTo"
                     value={editForm.assignedTo}
@@ -809,7 +809,7 @@ const Dashboard = () => {
                   <span>{viewingLead.budget}</span>
                 </div>
                 <div className="detail-group">
-                  <label>Assigned To:</label>
+                  <label>Product Name:</label>
                   <span>{viewingLead.assignedTo || 'Not Assigned'}</span>
                 </div>
                 <div className="detail-group">

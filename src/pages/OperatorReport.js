@@ -7,12 +7,12 @@ const OperatorReport = () => {
   const [selectedOperator, setSelectedOperator] = useState('');
   const [operators, setOperators] = useState([]);
   const [reportData, setReportData] = useState({
-    database: {
+    databaseSummary: {
       totalData: 0,
       callingDone: 0,
-      pending: 0
+      pending: 0,
+      callStatusDistribution: []
     },
-    callingStatus: [],
     callingDoneByDate: []
   });
   const [loading, setLoading] = useState(true);
@@ -47,18 +47,30 @@ const OperatorReport = () => {
   const fetchReportData = async (operator) => {
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/users/reports/${operator}`, {
+      const response = await fetch(`${BASE_URL}/leads/user-reports/`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        body: JSON.stringify({
+          callBy: operator
+        })
       });
-      const data = await response.json();
-      if (data.success) {
-        setReportData(data.data);
-      } else {
-        setError(data.message || 'Failed to fetch report data');
-      }
-    } catch (error) {
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch report data');
+    }
+
+    const result = await response.json();
+    if (result.success) {
+      setReportData(result.data);
+    } else {
+      throw new Error(result.message || 'Failed to fetch report data');
+    }
+  }
+    
+    catch (error) {
       setError('An error occurred while fetching report data');
     } finally {
       setLoading(false);
@@ -111,15 +123,15 @@ const OperatorReport = () => {
                 <tbody>
                   <tr>
                     <td>Total Data</td>
-                    <td className="text-center">{reportData.database.totalData}</td>
+                    <td className="text-center">{reportData.databaseSummary.totalData}</td>
                   </tr>
                   <tr>
                     <td>Calling Done</td>
-                    <td className="text-center">{reportData.database.callingDone}</td>
+                    <td className="text-center">{reportData.databaseSummary.callingDone}</td>
                   </tr>
                   <tr>
                     <td>Pending</td>
-                    <td className="text-center">{reportData.database.pending}</td>
+                    <td className="text-center">{reportData.databaseSummary.pending}</td>
                   </tr>
                 </tbody>
               </table>
@@ -129,10 +141,10 @@ const OperatorReport = () => {
               <h4>Calling Status</h4>
               <table className="table-bordered">
                 <tbody>
-                  {reportData.callingStatus.map((status, index) => (
+                  {reportData.databaseSummary.callStatusDistribution.map((status, index) => (
                     <tr key={index}>
                       <td>{status.callstatus}</td>
-                      <td className="text-center">{status.count}</td>
+                      <td className="text-center">{status.tcount}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -145,11 +157,7 @@ const OperatorReport = () => {
                 <tbody>
                   {reportData.callingDoneByDate.map((item, index) => (
                     <tr key={index}>
-                      <td>{new Date(item.submiton).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: '2-digit'
-                      })}</td>
+                      <td>{item.submiton}</td>
                       <td className="text-center">{item.sbcount}</td>
                     </tr>
                   ))}
