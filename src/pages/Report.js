@@ -49,6 +49,7 @@ const Report = () => {
 
       const result = await response.json();
       if (result.success) {
+        console.log("user Reports data>>",result.data)
         setReportData(result.data);
       } else {
         throw new Error(result.message || 'Failed to fetch report data');
@@ -173,12 +174,19 @@ const Report = () => {
                 </tr>
               </thead>
               <tbody>
-                {reportData.databaseSummary.callStatusDistribution.map((status, index) => (
-                  <tr key={index}>
-                    <td>{status.callstatus}</td>
-                    <td className="text-center">{status.tcount}</td>
-                  </tr>
-                ))}
+                {reportData.databaseSummary.callStatusDistribution
+                  .filter(status => ![
+                    'Not Qualified',
+                    'Interested But Out Of Budget',
+                    'Booking Done',
+                    'Number Not Answered - 3rd call'
+                  ].includes(status.callstatus))
+                  .map((status, index) => (
+                    <tr key={index}>
+                      <td>{status.callstatus}</td>
+                      <td className="text-center">{status.tcount}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -219,12 +227,19 @@ const Report = () => {
                 </thead>
                 <tbody>
                   {selectedDateStatus.length > 0 ? (
-                    selectedDateStatus.map((status, index) => (
-                      <tr key={index}>
-                        <td>{status.callstatus}</td>
-                        <td className="text-center">{status.count}</td>
-                      </tr>
-                    ))
+                    selectedDateStatus
+                      .filter(status => ![
+                        'Not Qualified',
+                        'Interested But Out Of Budget',
+                        'Booking Done',
+                        'Number Not Answered - 3rd call'
+                      ].includes(status.callstatus))
+                      .map((status, index) => (
+                        <tr key={index}>
+                          <td>{status.callstatus}</td>
+                          <td className="text-center">{status.count}</td>
+                        </tr>
+                      ))
                   ) : (
                     <tr>
                       <td colSpan="2" className="text-center">No data available</td>

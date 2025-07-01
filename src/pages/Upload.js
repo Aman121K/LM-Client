@@ -5,6 +5,32 @@ import { useAuth } from '../context/AuthContext';
 import './Upload.css';
 import AdminHeaderSection from '../components/AdminHeaderSection';
 
+const sampleCsvHeaders = [
+  'FirstName',
+  'LastName',
+  'EmailId',
+  'ContactNumber',
+  'callstatus',
+  'remarks',
+  'PostingDate',
+  'callby',
+  'submiton',
+  'productName'
+];
+
+function downloadSampleCsv() {
+  const csvContent = sampleCsvHeaders.join(',') + '\n';
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sample_leads.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 const Upload = () => {
   const navigate = useNavigate();
   const { user, userType } = useAuth();
@@ -94,6 +120,14 @@ const Upload = () => {
       <div className="upload-container">
         <div className="upload-content">
           <h2>Upload Lead Data (Admin Only)</h2>
+          <button
+            type="button"
+            className="upload-button"
+            style={{ marginBottom: '1rem', background: '#007bff' }}
+            onClick={downloadSampleCsv}
+          >
+            Download Sample CSV
+          </button>
           
           {error && <div className="error-message">{error}</div>}
           {success && <div className="success-message">{success}</div>}
