@@ -6,7 +6,7 @@ import goRealtorsLogo from './goRealtors.jpg';
 
 const UserHeaderSection = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, userType } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
@@ -29,7 +29,7 @@ const UserHeaderSection = () => {
           src={goRealtorsLogo}
           alt="Go Realtors"
           className="logo-image"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(-1)}
           style={{ cursor: 'pointer' }}
         />
       </div>
@@ -50,6 +50,11 @@ const UserHeaderSection = () => {
           <button onClick={() => navigate('/report')} className="action-btn brochures-btn">
             Reports
           </button>
+          {userType=='tl' && (
+            <button onClick={() => navigate('/user-leads')} className="action-btn brochures-btn">
+              User's Lead
+            </button>
+          )}
           <button onClick={() => navigate('/resale-leads')} className="action-btn brochures-btn">
             Re-Sale Lead
           </button>

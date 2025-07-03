@@ -48,6 +48,15 @@ const TLDashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  const closedStatuses = [
+    'Not Interested With Reason',
+    'No Response-Lead Closed',
+    'Not Qualified',
+    'Number Not Answered - 3rd call',
+    'Number Not Answered - 2nd call',
+    'Number Not Answered'
+  ];
+
   useEffect(() => {
     fetchCallStatuses();
     fetchTLUserCallStatus();
@@ -79,7 +88,7 @@ const TLDashboard = () => {
 
     try {
       setLoading(true);
-      
+
       const formatDate = (date) => {
         const d = new Date(date);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -89,11 +98,11 @@ const TLDashboard = () => {
         startDate: formatDate(startDate),
         endDate: formatDate(endDate),
         callStatus: callStatus,
-        tlId: user // Pass TL's ID to get all users under them
+        callby: user // Pass TL's ID to get all users under them
       });
 
       // Using TL-specific endpoint
-      const response = await fetch(`${BASE_URL}/leads/tl-leads?${params.toString()}`, {
+      const response = await fetch(`${BASE_URL}/leads/?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -255,16 +264,29 @@ const TLDashboard = () => {
     }));
   };
 
+  const handleEditCallStatusChange = (e) => {
+    const newStatus = e.target.value;
+    setEditForm(prev => ({
+      ...prev,
+      callstatus: newStatus
+    }));
+    if (closedStatuses.includes(newStatus)) {
+      setEditForm(prev => ({
+        ...prev,
+        followup: ''
+      }));
+    }
+  };
+
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const formattedFollowup = editForm.followup instanceof Date 
+      const formattedFollowup = editForm.followup instanceof Date
         ? editForm.followup.toISOString().split('T')[0]
         : editForm.followup;
 
-      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' || 
-                           editForm.callstatus === 'No Response - Lead Closed';
+      const isClosedStatus = closedStatuses.includes(editForm.callstatus);
 
       if (isClosedStatus) {
         if (!editForm.remarks) {
@@ -272,7 +294,7 @@ const TLDashboard = () => {
           return;
         }
       } else {
-        if (!editForm.FirstName || !editForm.LastName || !editForm.ContactNumber || 
+        if (!editForm.FirstName || !editForm.ContactNumber ||
             !editForm.callstatus || !editForm.remarks || !editForm.followup) {
           setError('Please fill in all required fields');
           return;
@@ -298,11 +320,11 @@ const TLDashboard = () => {
           budget: editForm.budget
         })
       });
-      
+
       const data = await response.json();
       if (data.success) {
-        setLoginUserCallStatus(prevLeads => 
-          prevLeads.map(lead => 
+        setLoginUserCallStatus(prevLeads =>
+          prevLeads.map(lead =>
             lead.id === editingLead.id ? { ...lead, ...editForm } : lead
           )
         );
@@ -332,13 +354,12 @@ const TLDashboard = () => {
   return (
     <div className="dashboard-container">
       <UserHeaderSection />
-
       <main className="dashboard-content">
         <div className="dashboard-header-actions">
-          <div className="filters-section">
-            <div className="filter-group">
+          <div className="filters-section" style={{ background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '1.5rem 1rem', marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+            <div className="filter-group" style={{ minWidth: 220, flex: 1 }}>
               <label>Date Range:</label>
-              <div className="date-range">
+              <div className="date-range" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <DatePicker
                   selected={startDate}
                   onChange={date => setStartDate(date)}
@@ -359,8 +380,7 @@ const TLDashboard = () => {
                 />
               </div>
             </div>
-
-            <div className="filter-group">
+            <div className="filter-group" style={{ minWidth: 180, flex: 1 }}>
               <label>Call Status:</label>
               <select
                 value={callStatus}
@@ -375,8 +395,7 @@ const TLDashboard = () => {
                 ))}
               </select>
             </div>
-
-            <div className="filter-group">
+            <div className="filter-group" style={{ minWidth: 180, flex: 1 }}>
               <label>Search Mobile:</label>
               <input
                 type="text"
@@ -386,13 +405,9 @@ const TLDashboard = () => {
                 className="mobile-search"
               />
             </div>
-          </div>
-
-          <div className="or-divider">Or</div>
-
-          <div className="search-section">
-            <div className="search-inputs">
-              <div className="search-input-group">
+            <div className="filter-group" style={{ minWidth: 220, flex: 2 }}>
+              <label>Search by Name or Contact:</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
                 <input
                   type="text"
                   name="name"
@@ -400,9 +415,8 @@ const TLDashboard = () => {
                   onChange={handleSearchInputChange}
                   placeholder="Search by name"
                   className="search-input"
+                  style={{ flex: '1 1 150px', minWidth: 0 }}
                 />
-              </div>
-              <div className="search-input-group">
                 <input
                   type="text"
                   name="contactNumber"
@@ -410,20 +424,21 @@ const TLDashboard = () => {
                   onChange={handleSearchInputChange}
                   placeholder="Search by contact number"
                   className="search-input"
+                  style={{ flex: '1 1 150px', minWidth: 0 }}
                 />
-              </div>
-              <div className="search-buttons">
-                <button 
+                <button
                   className="search-button"
                   onClick={handleSearch}
                   disabled={isSearching}
+                  style={{ background: '#007bff', color: '#fff', border: 'none', borderRadius: 4, padding: '0.5rem 1rem', cursor: 'pointer', flex: '0 0 auto' }}
                 >
                   {isSearching ? 'Searching...' : 'Search'}
                 </button>
-                <button 
+                <button
                   className="clear-button"
                   onClick={handleClearSearch}
                   disabled={isSearching}
+                  style={{ background: '#f5f5f5', color: '#333', border: '1px solid #ccc', borderRadius: 4, padding: '0.5rem 1rem', cursor: 'pointer', flex: '0 0 auto' }}
                 >
                   Clear
                 </button>
@@ -432,8 +447,281 @@ const TLDashboard = () => {
           </div>
         </div>
 
-        {/* Rest of the JSX remains the same as Dashboard.js */}
+        {/* Leads Table Section */}
+        <section className="leads-table">
+          {loading ? (
+            <div className="loading">Loading leads data...</div>
+          ) : filteredLeads.length === 0 ? (
+            <div className="no-data-found">
+              <div className="no-data-icon">📊</div>
+              <h3>No Leads Found</h3>
+              <p>There are no leads matching your current filters.</p>
+            </div>
+          ) : (
+            <>
+            <div className="lead-count-badge">
+              <span className="lead-count-label">Leads Found</span>
+              <span className="lead-count-number">{filteredLeads.length}</span>
+            </div>
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Call Status</th>
+                    <th>Product Name</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLeads.map(lead => (
+                    <tr key={lead.id}>
+                      <td>{lead.FirstName}</td>
+                      <td>{lead.ContactNumber}</td>
+                      <td>
+                        <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>{lead.callstatus}</span>
+                      </td>
+                      <td>{lead.productname}</td>
+                      <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ''}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="action-button view"
+                            onClick={() => handleViewClick(lead)}
+                          >
+                            View
+                          </button>
+                          <button
+                            className="action-button edit"
+                            onClick={() => handleEditClick(lead)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="action-button call"
+                            onClick={() => handleCallClick(lead.ContactNumber)}
+                          >
+                            Call
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            </>
+          )}
+        </section>
       </main>
+
+      {/* Edit Form Modal */}
+      {editingLead && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Edit Lead</h2>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label>Call Status: <span className="required">*</span></label>
+                <select
+                  name="callstatus"
+                  value={editForm.callstatus}
+                  onChange={handleEditCallStatusChange}
+                  required
+                >
+                  <option value="">Select Call Status</option>
+                  {callStatuses?.map((status, index) => (
+                    <option key={index} value={status?.name}>
+                      {status?.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Remarks: <span className="required">*</span></label>
+                <textarea
+                  name="remarks"
+                  value={editForm.remarks}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </div>
+              {!closedStatuses.includes(editForm.callstatus) && (
+                <>
+                  <div className="form-group">
+                    <label>First Name: <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      name="FirstName"
+                      value={editForm.FirstName}
+                      onChange={handleEditFormChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Last Name:</label>
+                    <input
+                      type="text"
+                      name="LastName"
+                      value={editForm.LastName}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email:</label>
+                    <input
+                      type="email"
+                      name="EmailId"
+                      value={editForm.EmailId}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Contact Number: <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      name="ContactNumber"
+                      value={editForm.ContactNumber}
+                      onChange={handleEditFormChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Follow Up Date: <span className="required">*</span></label>
+                    <input
+                      type="date"
+                      name="followup"
+                      value={editForm.followup instanceof Date
+                        ? editForm.followup.toISOString().split('T')[0]
+                        : editForm.followup}
+                      onChange={handleEditFormChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Product Name:</label>
+                    <input
+                      type="text"
+                      name="productname"
+                      value={editForm.productname}
+                      onChange={handleEditFormChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Unit Type:</label>
+                    <select
+                      name="unittype"
+                      value={editForm.unittype}
+                      onChange={handleEditFormChange}
+                    >
+                      <option value="">Select Unit Type</option>
+                      {unitList.map((unit, index) => (
+                        <option key={index} value={unit.name}>
+                          {unit.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Budget:</label>
+                    <select
+                      name="budget"
+                      value={editForm.budget}
+                      onChange={handleEditFormChange}
+                    >
+                      <option value="">Select Budget</option>
+                      {budgetList.map((budget, index) => (
+                        <option key={index} value={budget.name}>
+                          {budget.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+              <div className="modal-actions">
+                <button type="submit" className="submit-button">Update Lead</button>
+                <button
+                  type="button"
+                  className="cancel-button"
+                  onClick={() => setEditingLead(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* View Modal */}
+      {viewingLead && (
+        <div className="modal-overlay">
+          <div className="modal-content view-modal">
+            <h2>Lead Details</h2>
+            <div className="lead-details">
+              <div className="detail-group">
+                <label>ID:</label>
+                <span>{viewingLead.id}</span>
+              </div>
+              <div className="detail-group">
+                <label>First Name:</label>
+                <span>{viewingLead.FirstName}</span>
+              </div>
+              <div className="detail-group">
+                <label>Last Name:</label>
+                <span>{viewingLead.LastName}</span>
+              </div>
+              <div className="detail-group">
+                <label>Email:</label>
+                <span>{viewingLead.EmailId}</span>
+              </div>
+              <div className="detail-group">
+                <label>Contact Number:</label>
+                <span>{viewingLead.ContactNumber}</span>
+              </div>
+              <div className="detail-group">
+                <label>Call Status:</label>
+                <span>{viewingLead.callstatus}</span>
+              </div>
+              <div className="detail-group">
+                <label>Remarks:</label>
+                <span>{viewingLead.remarks}</span>
+              </div>
+              <div className="detail-group">
+                <label>Follow Up:</label>
+                <span>{viewingLead.followup}</span>
+              </div>
+              <div className="detail-group">
+                <label>Product Name:</label>
+                <span>{viewingLead.productname}</span>
+              </div>
+              <div className="detail-group">
+                <label>Unit Type:</label>
+                <span>{viewingLead.unittype}</span>
+              </div>
+              <div className="detail-group">
+                <label>Budget:</label>
+                <span>{viewingLead.budget}</span>
+              </div>
+              <div className="detail-group">
+                <label>Created At:</label>
+                <span>{viewingLead.createdAt ? new Date(viewingLead.createdAt).toLocaleString() : ''}</span>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="cancel-button"
+                onClick={() => setViewingLead(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

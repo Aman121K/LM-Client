@@ -20,38 +20,40 @@
 
 .report-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 15px;
-  padding: 0 5px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 .report-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 12px;
-  margin-bottom: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 1.25rem 1rem;
+  margin-bottom: 0.5rem;
+  overflow-x: auto;
 }
 
 .report-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  min-width: 250px;
 }
 
 .report-table th,
 .report-table td {
-  padding: 12px 8px;
+  padding: 0.75rem 0.5rem;
   border-bottom: 1px solid #eee;
   word-break: break-word;
 }
 
 .table-header {
   background-color: #f5f5f5;
-  padding: 12px;
+  padding: 0.75rem;
   text-align: center;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
 .text-center {
@@ -60,17 +62,19 @@
 
 .loading {
   text-align: center;
-  padding: 20px;
-  font-size: 1rem;
+  padding: 2rem;
   color: #666;
+  font-size: 1.1rem;
 }
 
 .error-message {
   color: #dc3545;
   text-align: center;
-  padding: 20px;
-  font-size: 0.95rem;
-  margin: 0 15px;
+  padding: 1.2rem;
+  font-size: 1rem;
+  margin: 0 10px 1rem 10px;
+  background: #fff0f0;
+  border-radius: 6px;
 }
 
 /* Date selection styles */
@@ -99,7 +103,7 @@
 }
 
 .selected-date-status {
-  margin-top: 15px;
+  margin-top: 1.2rem;
   animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -120,11 +124,6 @@
     padding: 20px;
   }
 
-  .report-grid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-  }
-
   .report-header h3 {
     font-size: 1.5rem;
     text-align: left;
@@ -140,23 +139,86 @@
 }
 
 /* Additional mobile optimizations */
-@media (max-width: 480px) {
-  .report-card {
-    padding: 10px;
+@media (max-width: 600px) {
+  .report-container {
+    padding: 0.5rem;
   }
-
+  .report-header h3 {
+    font-size: 1.1rem;
+    text-align: center;
+  }
+  .report-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .report-card {
+    padding: 0.75rem 0.25rem;
+    font-size: 0.95rem;
+  }
   .report-table th,
   .report-table td {
-    padding: 10px 6px;
-    font-size: 0.9rem;
-  }
-
-  .table-header {
+    padding: 0.5rem 0.25rem;
     font-size: 0.95rem;
-    padding: 10px;
   }
+  .tl-user-dropdown-select {
+    font-size: 0.98rem;
+    max-width: 100%;
+  }
+  .tl-user-dropdown-label {
+    font-size: 0.98rem;
+  }
+}
 
-  .date-row td {
-    padding: 10px 6px;
-  }
+/* --- TL User Dropdown Styles --- */
+.tl-user-dropdown-container {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.tl-user-dropdown-label {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+.tl-user-dropdown-select {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: #f8f9fa;
+  color: #333;
+  max-width: 350px;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.7);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.loading-text {
+  font-size: 1.1rem;
+  color: #333;
+  font-weight: 500;
 } 

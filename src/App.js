@@ -14,6 +14,7 @@ import Report from './pages/Report';
 import Upload from './pages/Upload';
 import TLDashboard from './pages/TLDashboard';
 import ResaleLeads from './pages/ResaleLeads';
+import UserLeads from './pages/user-leads';
 
 // Create a separate component for routes that uses useAuth
 const AppRoutes = () => {
@@ -35,7 +36,15 @@ const AppRoutes = () => {
         path="/TLdashboard"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <TLDashboard />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/user-leads"
+        element={
+          <ProtectedRoute>
+            <UserLeads />
           </ProtectedRoute>
         }
       />

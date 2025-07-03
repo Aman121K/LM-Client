@@ -39,6 +39,7 @@ const Login = () => {
             break;
           case 'user':
             navigate('/dashboard');
+            break;
           case 'tl':
             navigate('/TLdashboard');
             break;

@@ -5,7 +5,8 @@ import UserHeaderSection from '../components/UserHeaderSection';
 import './Report.css';
 
 const Report = () => {
-  const { user } = useAuth();
+  const { user, userType } = useAuth();
+  console.log("user type is>>", userType)
   const [reportData, setReportData] = useState({
     databaseSummary: {
       totalData: 0,
@@ -19,19 +20,45 @@ const Report = () => {
   const [selectedDateStatus, setSelectedDateStatus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [usersUnderTL, setUsersUnderTL] = useState([]);
+  const [selectedUser, setSelectedUser] = useState('');
+
+  useEffect(() => {
+    if (userType === 'tl') {
+      fetchUsersUnderTL();
+    }
+  }, [userType, user]);
 
   useEffect(() => {
     fetchReportData();
-  }, []);
+  }, [selectedUser, user]);
 
   useEffect(() => {
     if (selectedDate) {
       fetchDateStatus(selectedDate);
     }
-  }, [selectedDate]);
+  }, [selectedDate, selectedUser]);
+
+  const fetchUsersUnderTL = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/users/under-tl/${user}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setUsersUnderTL(data.data);
+      }
+    } catch (error) {
+      setError('Failed to fetch users under TL');
+    }
+  };
 
   const fetchReportData = async () => {
+    setLoading(true);
     try {
+      const callBy = userType === 'tl' && selectedUser ? selectedUser : user;
       const response = await fetch(`${BASE_URL}/leads/user-reports/`, {
         method: 'POST',
         headers: {
@@ -39,7 +66,7 @@ const Report = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          callBy: user
+          callBy
         })
       });
 
@@ -49,14 +76,12 @@ const Report = () => {
 
       const result = await response.json();
       if (result.success) {
-        console.log("user Reports data>>",result.data)
         setReportData(result.data);
       } else {
         throw new Error(result.message || 'Failed to fetch report data');
       }
     } catch (err) {
       setError('Failed to load report data');
-      console.error('Error fetching report data:', err);
     } finally {
       setLoading(false);
     }
@@ -65,7 +90,6 @@ const Report = () => {
   const fetchDateStatus = async (date) => {
     try {
       setLoading(true);
-      // Convert date from "11-May-25" to "2025-05-11"
       const [day, month, year] = date.split('-');
       const months = {
         'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
@@ -73,7 +97,7 @@ const Report = () => {
         'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
       };
       const formattedDate = `20${year}-${months[month]}-${day.padStart(2, '0')}`;
-
+      const callBy = userType === 'tl' && selectedUser ? selectedUser : user;
       const response = await fetch(`${BASE_URL}/leads/date-range/`, {
         method: 'POST',
         headers: {
@@ -82,7 +106,7 @@ const Report = () => {
         },
         body: JSON.stringify({
           date: formattedDate,
-          callBy: user
+          callBy
         })
       });
 
@@ -92,7 +116,6 @@ const Report = () => {
 
       const result = await response.json();
       if (result.success) {
-        // Convert statusCounts object to array format
         const statusArray = Object.entries(result.data.statusCounts).map(([callstatus, count]) => ({
           callstatus,
           count
@@ -103,7 +126,6 @@ const Report = () => {
       }
     } catch (err) {
       setError('Failed to load date status');
-      console.error('Error fetching date status:', err);
     } finally {
       setLoading(false);
     }
@@ -113,14 +135,10 @@ const Report = () => {
     setSelectedDate(date);
   };
 
-  if (loading) {
-    return (
-      <>
-        <UserHeaderSection />
-        <div className="loading">Loading...</div>
-      </>
-    );
-  }
+  const handleUserChange = (e) => {
+    setSelectedUser(e.target.value);
+    setSelectedDate(null); // Reset date selection on user change
+  };
 
   if (error) {
     return (
@@ -134,10 +152,35 @@ const Report = () => {
   return (
     <>
       <UserHeaderSection />
-      <div className="report-container">
+      <div className="report-container" style={{ position: 'relative' }}>
+        {loading && (
+          <div className="loading-overlay">
+            <div className="spinner"></div>
+            <div className="loading-text">Loading...</div>
+          </div>
+        )}
         <div className="report-header">
           <h3>Report Summary</h3>
         </div>
+
+        {userType === 'tl' && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label htmlFor="userDropdown">Select Your User to check report: </label>
+            <select
+              id="userDropdown"
+              value={selectedUser}
+              onChange={handleUserChange}
+              style={{ padding: '0.5rem', minWidth: 200 }}
+            >
+              <option value="">-- Your User --</option>
+              {usersUnderTL.map(u => (
+                <option key={u.Username} value={u.Username}>
+                  {u.FullName} ({u.Username})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="report-grid">
           {/* Database Summary */}
@@ -201,7 +244,7 @@ const Report = () => {
               </thead>
               <tbody>
                 {reportData.callingDoneByDate.map((item, index) => (
-                  <tr 
+                  <tr
                     key={index}
                     className={`date-row ${selectedDate === item.submiton ? 'selected' : ''}`}
                     onClick={() => handleDateClick(item.submiton)}

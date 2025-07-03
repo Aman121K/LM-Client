@@ -33,6 +33,7 @@ const CreateUser = () => {
       });
       const data = await response.json();
       if (data.success) {
+        console.log("all tl names>>",data.data)
         setTlUsers(data.data);
       }
     } catch (error) {
@@ -73,7 +74,7 @@ const CreateUser = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/users/create`, {
+      const response = await fetch(`${BASE_URL}/users/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +234,7 @@ const CreateUser = () => {
                   <option value="">Select Team Lead</option>
                   {tlUsers.map(tl => (
                     <option key={tl.id} value={tl.username}>
-                      {tl.fullName}
+                      {tl.FullName}
                     </option>
                   ))}
                 </select>
