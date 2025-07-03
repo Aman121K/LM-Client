@@ -40,7 +40,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-       <Route
+      <Route
         path="/user-leads"
         element={
           <ProtectedRoute>
