@@ -220,7 +220,8 @@ const Dashboard = () => {
   const handleCallClick = (phoneNumber) => {
     // Remove any non-numeric characters and ensure it starts with 91
     const cleanNumber = phoneNumber.replace(/\D/g, '');
-    const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
+    const formattedNumber = cleanNumber;
+    // const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     window.location.href = `tel:${formattedNumber}`;
   };
 

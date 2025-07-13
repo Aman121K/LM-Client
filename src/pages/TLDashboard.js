@@ -47,7 +47,7 @@ const TLDashboard = () => {
   });
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-
+  const [tlUsers, setTlUsers] = useState([]);
   const closedStatuses = [
     'Not Interested With Reason',
     'No Response-Lead Closed',
@@ -62,6 +62,7 @@ const TLDashboard = () => {
     fetchTLUserCallStatus();
     fetchBudgetList();
     fetchUnitList();
+    fetchTlUsers();
   }, [startDate, endDate, callStatus, mobileSearch, user]);
 
   const fetchCallStatuses = async () => {
@@ -173,6 +174,25 @@ const TLDashboard = () => {
     }
   };
 
+  const fetchTlUsers = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/users/tl`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setTlUsers(data.data || []);
+      } else {
+        setError(data.message || 'Failed to fetch TL users');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching TL users');
+    }
+  };
+
   const handleCallStatusChange = (e) => {
     const selectedStatus = e.target.value;
     setCallStatus(selectedStatus);
@@ -236,7 +256,8 @@ const TLDashboard = () => {
 
   const handleCallClick = (phoneNumber) => {
     const cleanNumber = phoneNumber.replace(/\D/g, '');
-    const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
+    const formattedNumber = cleanNumber;
+    // const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     window.location.href = `tel:${formattedNumber}`;
   };
 
@@ -295,7 +316,7 @@ const TLDashboard = () => {
         }
       } else {
         if (!editForm.FirstName || !editForm.ContactNumber ||
-            !editForm.callstatus || !editForm.remarks || !editForm.followup) {
+          !editForm.callstatus || !editForm.remarks || !editForm.followup) {
           setError('Please fill in all required fields');
           return;
         }
@@ -459,59 +480,59 @@ const TLDashboard = () => {
             </div>
           ) : (
             <>
-            <div className="lead-count-badge">
-              <span className="lead-count-label">Leads Found</span>
-              <span className="lead-count-number">{filteredLeads.length}</span>
-            </div>
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Mobile</th>
-                    <th>Call Status</th>
-                    <th>Product Name</th>
-                    <th>Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLeads.map(lead => (
-                    <tr key={lead.id}>
-                      <td>{lead.FirstName}</td>
-                      <td>{lead.ContactNumber}</td>
-                      <td>
-                        <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>{lead.callstatus}</span>
-                      </td>
-                      <td>{lead.productname}</td>
-                      <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ''}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="action-button view"
-                            onClick={() => handleViewClick(lead)}
-                          >
-                            View
-                          </button>
-                          <button
-                            className="action-button edit"
-                            onClick={() => handleEditClick(lead)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="action-button call"
-                            onClick={() => handleCallClick(lead.ContactNumber)}
-                          >
-                            Call
-                          </button>
-                        </div>
-                      </td>
+              <div className="lead-count-badge">
+                <span className="lead-count-label">Leads Found</span>
+                <span className="lead-count-number">{filteredLeads.length}</span>
+              </div>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Mobile</th>
+                      <th>Call Status</th>
+                      <th>Product Name</th>
+                      <th>Date</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map(lead => (
+                      <tr key={lead.id}>
+                        <td>{lead.FirstName}</td>
+                        <td>{lead.ContactNumber}</td>
+                        <td>
+                          <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>{lead.callstatus}</span>
+                        </td>
+                        <td>{lead.productname}</td>
+                        <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ''}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              className="action-button view"
+                              onClick={() => handleViewClick(lead)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="action-button edit"
+                              onClick={() => handleEditClick(lead)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="action-button call"
+                              onClick={() => handleCallClick(lead.ContactNumber)}
+                            >
+                              Call
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </section>
@@ -639,6 +660,21 @@ const TLDashboard = () => {
                       ))}
                     </select>
                   </div>
+                  <div className="form-group">
+                    <label>Assign To:</label>
+                    <select
+                      name="assignedTo"
+                      value={editForm.assignedTo}
+                      onChange={handleEditFormChange}
+                    >
+                      <option value="">Assign To</option>
+                      {tlUsers.map((tl, index) => (
+                        <option key={index} value={tl.Username}>
+                          {tl.Username}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </>
               )}
               <div className="modal-actions">
@@ -651,6 +687,7 @@ const TLDashboard = () => {
                   Cancel
                 </button>
               </div>
+
             </form>
           </div>
         </div>

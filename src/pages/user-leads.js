@@ -76,7 +76,8 @@ const UserLeads = () => {
 
   const handleCallClick = (phoneNumber) => {
     const cleanNumber = phoneNumber.replace(/\D/g, '');
-    const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
+    const formattedNumber = cleanNumber;
+    // const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     window.location.href = `tel:${formattedNumber}`;
   };
 
