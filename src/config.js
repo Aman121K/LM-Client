@@ -2,8 +2,8 @@
 const config = {
     // Development environment
     development: {
-        BASE_URL: 'http://localhost:5000/api',
-        // BASE_URL: 'https://lm-server-16xa.onrender.com/api'
+        // BASE_URL: 'http://localhost:5000/api',
+        BASE_URL: 'https://lm-server-16xa.onrender.com/api'
     },
     // Production environment
     production: {
