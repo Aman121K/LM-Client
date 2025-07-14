@@ -13,11 +13,13 @@ const Dashboard = () => {
   const [startDate, setStartDate] = useState(new Date('2025-05-01'));
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('All');
+  const [productName, setProductName] = useState('All');
   const [mobileSearch, setMobileSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [leads, setLeads] = useState([]);
   const [callStatuses, setCallStatuses] = useState([]);
+  const [productsName, setProductsName] = useState([]);
   const [allCallStatuses, setAllCallStatuses] = useState([]);
   const [loginUserCallStatus, setLoginUserCallStatus] = useState([]);
   const [tlUsers, setTlUsers] = useState([]);
@@ -54,12 +56,13 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchCallStatuses();
+    fetchProductsName()
     fetchAllCallStatuses();
     fetchLoginUserCallStatus();
     fetchBudgetList();
     fetchUnitList();
     fetchTlUsers();
-  }, [startDate, endDate, callStatus, mobileSearch, user]);
+  }, [startDate, endDate, callStatus, mobileSearch, user,productName]);
 
   const fetchCallStatuses = async () => {
     try {
@@ -77,6 +80,24 @@ const Dashboard = () => {
       }
     } catch (error) {
       setError('An error occurred while fetching call statuses');
+    }
+  };
+  const fetchProductsName = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/leads/products-name?callBy=${user}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setProductsName(data?.data);
+      } else {
+        setError(data.message || 'Failed to fetch product name');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching product name');
     }
   };
 
@@ -116,7 +137,8 @@ const Dashboard = () => {
         startDate: formatDate(startDate),
         endDate: formatDate(endDate),
         callStatus: callStatus,
-        callby: user
+        callby: user,
+        productname: productName
       });
 
       const response = await fetch(`${BASE_URL}/leads/?${params.toString()}`, {
@@ -212,9 +234,14 @@ const Dashboard = () => {
   };
 
   const handleCallStatusChange = (e) => {
-    console.log("selected data>>", e?.target?.value);
+    // console.log("selected data>>", e?.target?.value);
     const selectedStatus = e.target.value;
     setCallStatus(selectedStatus);
+  };
+  const handleProductNameChange = (e) => {
+    // console.log("selected data>>", e?.target?.value);
+    const productName = e.target.value;
+    setProductName(productName);
   };
 
   const handleCallClick = (phoneNumber) => {
@@ -271,12 +298,12 @@ const Dashboard = () => {
         : editForm.followup;
 
       // Check if call status is one of the closed statuses
-      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' || 
-                           editForm.callstatus === 'No Response-Lead Closed' || 
-                           editForm.callstatus === 'Not Qualified' ||
-                           editForm.callstatus === 'Number Not Answered - 3rd call' ||
-                           editForm.callstatus === 'Number Not Answered - 2nd call' ||
-                           editForm.callstatus === 'Number Not Answered';
+      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' ||
+        editForm.callstatus === 'No Response-Lead Closed' ||
+        editForm.callstatus === 'Not Qualified' ||
+        editForm.callstatus === 'Number Not Answered - 3rd call' ||
+        editForm.callstatus === 'Number Not Answered - 2nd call' ||
+        editForm.callstatus === 'Number Not Answered';
 
       // Validate required fields based on call status
       if (isClosedStatus) {
@@ -286,8 +313,8 @@ const Dashboard = () => {
         }
       } else {
         // Validate all required fields for active leads
-        if (!editForm.FirstName || !editForm.ContactNumber || 
-            !editForm.callstatus || !editForm.remarks || !editForm.followup) {
+        if (!editForm.FirstName || !editForm.ContactNumber ||
+          !editForm.callstatus || !editForm.remarks || !editForm.followup) {
           setError('Please fill in all required fields');
           return;
         }
@@ -342,12 +369,12 @@ const Dashboard = () => {
     }));
 
     // If status is closed or number not answered, clear followup date
-    if (newStatus === 'Not Interested With Reason' || 
-        newStatus === 'No Response-Lead Closed' ||
-        newStatus === 'Not Qualified' ||
-        newStatus === 'Number Not Answered - 3rd call' ||
-        newStatus === 'Number Not Answered - 2nd call' ||
-        newStatus === 'Number Not Answered') {
+    if (newStatus === 'Not Interested With Reason' ||
+      newStatus === 'No Response-Lead Closed' ||
+      newStatus === 'Not Qualified' ||
+      newStatus === 'Number Not Answered - 3rd call' ||
+      newStatus === 'Number Not Answered - 2nd call' ||
+      newStatus === 'Number Not Answered') {
       setEditForm(prev => ({
         ...prev,
         followup: ''
@@ -457,6 +484,21 @@ const Dashboard = () => {
                 ))}
               </select>
             </div>
+            <div className="filter-group">
+              <label>Product Name:</label>
+              <select
+                value={productName}
+                onChange={handleProductNameChange}
+                className="status-select"
+              >
+                <option value="all">All</option>
+                {productsName?.map((status, index) => (
+                  <option key={index} value={status?.name}>
+                    {status?.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* <div className="filter-group">
               <label>Search Mobile:</label>
@@ -533,65 +575,65 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
-            <div className="lead-count-badge">
-              <span className="lead-count-label">Leads Found</span>
-              <span className="lead-count-number">{filteredLeads.length}</span>
-            </div>
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    {/* <th>ID</th> */}
-                    <th>Name</th>
-                    <th>Mobile</th>
-                    {/* <th>Email</th> */}
-                    <th>Call Status</th>
-                    <th>Product Name</th>
-                    <th>Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLeads.map(lead => (
-                    <tr key={lead.id}>
-                      {/* <td>{lead.id}</td> */}
-                      <td>{lead.FirstName}</td>
-                      <td>{lead.ContactNumber}</td>
-                      {/* <td>{lead.EmailId}</td> */}
-                      <td>
-                        <span className={`status-badge ${lead?.callstatus.toLowerCase()}`}>
-                          {lead.callstatus}
-                        </span>
-                      </td>
-                      <td>{lead.productname}</td>
-                      <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="action-button view"
-                            onClick={() => handleViewClick(lead)}
-                          >
-                            View
-                          </button>
-                          <button
-                            className="action-button edit"
-                            onClick={() => handleEditClick(lead)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="action-button call"
-                            onClick={() => handleCallClick(lead.ContactNumber)}
-                          >
-                            Call
-                          </button>
-                        </div>
-                      </td>
+              <div className="lead-count-badge">
+                <span className="lead-count-label">Leads Found</span>
+                <span className="lead-count-number">{filteredLeads.length}</span>
+              </div>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      {/* <th>ID</th> */}
+                      <th>Name</th>
+                      <th>Mobile</th>
+                      {/* <th>Email</th> */}
+                      <th>Call Status</th>
+                      <th>Product Name</th>
+                      <th>Date</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map(lead => (
+                      <tr key={lead.id}>
+                        {/* <td>{lead.id}</td> */}
+                        <td>{lead.FirstName}</td>
+                        <td>{lead.ContactNumber}</td>
+                        {/* <td>{lead.EmailId}</td> */}
+                        <td>
+                          <span className={`status-badge ${lead?.callstatus.toLowerCase()}`}>
+                            {lead.callstatus}
+                          </span>
+                        </td>
+                        <td>{lead.productname}</td>
+                        <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              className="action-button view"
+                              onClick={() => handleViewClick(lead)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="action-button edit"
+                              onClick={() => handleEditClick(lead)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="action-button call"
+                              onClick={() => handleCallClick(lead.ContactNumber)}
+                            >
+                              Call
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </section>
@@ -629,104 +671,104 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {editForm.callstatus !== 'Not Interested With Reason' && 
-                 editForm.callstatus !== 'No Response-Lead Closed' && 
-                 editForm.callstatus !== 'Not Qualified' &&
-                 editForm.callstatus !== 'Number Not Answered - 3rd call' &&
-                 editForm.callstatus !== 'Number Not Answered - 2nd call' &&
-                 editForm.callstatus !== 'Number Not Answered' && (
-                  <>
-                    <div className="form-group">
-                      <label>First Name: <span className="required">*</span></label>
-                      <input
-                        type="text"
-                        name="FirstName"
-                        value={editForm.FirstName}
-                        onChange={handleEditFormChange}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Last Name:</label>
-                      <input
-                        type="text"
-                        name="LastName"
-                        value={editForm.LastName}
-                        onChange={handleEditFormChange}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Email:</label>
-                      <input
-                        type="email"
-                        name="EmailId"
-                        value={editForm.EmailId}
-                        onChange={handleEditFormChange}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Contact Number: <span className="required">*</span></label>
-                      <input
-                        type="text"
-                        name="ContactNumber"
-                        value={editForm.ContactNumber}
-                        onChange={handleEditFormChange}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Follow Up Date: <span className="required">*</span></label>
-                      <input
-                        type="date"
-                        name="followup"
-                        value={editForm.followup instanceof Date
-                          ? editForm.followup.toISOString().split('T')[0]
-                          : editForm.followup}
-                        onChange={handleEditFormChange}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Product Name:<span className="required">*</span></label>
-                      <input
-                        type="text"
-                        name="productname"
-                        value={editForm.productname}
-                        onChange={handleEditFormChange}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Unit Type:<span className="required">*</span></label>
-                      <select
-                        name="unittype"
-                        value={editForm.unittype}
-                        onChange={handleEditFormChange}
-                      >
-                        <option value="">Select Unit Type</option>
-                        {unitList.map((unit, index) => (
-                          <option key={index} value={unit.name}>
-                            {unit.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Budget:<span className="required">*</span></label>
-                      <select
-                        name="budget"
-                        value={editForm.budget}
-                        onChange={handleEditFormChange}
-                      >
-                        <option value="">Select Budget</option>
-                        {budgetList.map((budget, index) => (
-                          <option key={index} value={budget.name}>
-                            {budget.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </>
-                )}
+                {editForm.callstatus !== 'Not Interested With Reason' &&
+                  editForm.callstatus !== 'No Response-Lead Closed' &&
+                  editForm.callstatus !== 'Not Qualified' &&
+                  editForm.callstatus !== 'Number Not Answered - 3rd call' &&
+                  editForm.callstatus !== 'Number Not Answered - 2nd call' &&
+                  editForm.callstatus !== 'Number Not Answered' && (
+                    <>
+                      <div className="form-group">
+                        <label>First Name: <span className="required">*</span></label>
+                        <input
+                          type="text"
+                          name="FirstName"
+                          value={editForm.FirstName}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Last Name:</label>
+                        <input
+                          type="text"
+                          name="LastName"
+                          value={editForm.LastName}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Email:</label>
+                        <input
+                          type="email"
+                          name="EmailId"
+                          value={editForm.EmailId}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Contact Number: <span className="required">*</span></label>
+                        <input
+                          type="text"
+                          name="ContactNumber"
+                          value={editForm.ContactNumber}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Follow Up Date: <span className="required">*</span></label>
+                        <input
+                          type="date"
+                          name="followup"
+                          value={editForm.followup instanceof Date
+                            ? editForm.followup.toISOString().split('T')[0]
+                            : editForm.followup}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Product Name:<span className="required">*</span></label>
+                        <input
+                          type="text"
+                          name="productname"
+                          value={editForm.productname}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Unit Type:<span className="required">*</span></label>
+                        <select
+                          name="unittype"
+                          value={editForm.unittype}
+                          onChange={handleEditFormChange}
+                        >
+                          <option value="">Select Unit Type</option>
+                          {unitList.map((unit, index) => (
+                            <option key={index} value={unit.name}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Budget:<span className="required">*</span></label>
+                        <select
+                          name="budget"
+                          value={editForm.budget}
+                          onChange={handleEditFormChange}
+                        >
+                          <option value="">Select Budget</option>
+                          {budgetList.map((budget, index) => (
+                            <option key={index} value={budget.name}>
+                              {budget.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
 
                 <div className="form-group">
                   <label>Product Name:</label>
