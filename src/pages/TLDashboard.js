@@ -12,6 +12,7 @@ const TLDashboard = () => {
   const [startDate, setStartDate] = useState(new Date('2025-05-01'));
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('All');
+  const [productName, setProductName] = useState('All');
   const [mobileSearch, setMobileSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -99,6 +100,7 @@ const TLDashboard = () => {
         startDate: formatDate(startDate),
         endDate: formatDate(endDate),
         callStatus: callStatus,
+        productName: productName,
         callby: user // Pass TL's ID to get all users under them
       });
 
