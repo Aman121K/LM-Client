@@ -8,7 +8,7 @@ const config = {
     },
     // Production environment
     production: {
-        BASE_URL: 'https://lm-server-16xa.onrender.com/api' // Replace with your actual production URL
+        BASE_URL: 'https://lm-server-ladl.onrender.com/api' // Replace with your actual production URL
     }
 };
 
