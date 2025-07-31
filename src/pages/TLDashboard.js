@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import UserHeaderSection from '../components/UserHeaderSection';
@@ -6,6 +6,7 @@ import { BASE_URL } from '../config';
 import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import moment from 'moment';
 
 const TLDashboard = () => {
   const { user, logout } = useAuth();
@@ -68,7 +69,7 @@ const TLDashboard = () => {
 
   const fetchCallStatuses = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/leads/allCallStatus`, {
+      const response = await fetch(`${BASE_URL}/leads/call-statuses?callBy=${user}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -275,7 +276,11 @@ const TLDashboard = () => {
       followup: lead.followup ? new Date(lead.followup) : new Date(),
       productname: lead.productname || '',
       unittype: lead.unittype || '',
-      budget: lead.budget || ''
+      budget: lead.budget || '',
+      assignedTo: lead.assignedTo || '',
+      callBy: lead.callBy || '',
+      lastCallDoneBy: lead.lastCallDoneBy || '',
+      lastCallDoneAt: lead.lastCallDoneAt || ''
     });
   };
 
@@ -340,7 +345,8 @@ const TLDashboard = () => {
           followup: formattedFollowup,
           productname: editForm.productname,
           unittype: editForm.unittype,
-          budget: editForm.budget
+          budget: editForm.budget,
+          assignedTo: editForm.assignedTo
         })
       });
 
@@ -545,6 +551,8 @@ const TLDashboard = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <h2>Edit Lead</h2>
+
+            {editForm.lastCallDoneBy && <h4 style={{ color: 'red', marginBottom: 10 }}> Last Call Done By: {editForm.lastCallDoneBy.toUpperCase()} on {moment(editForm.lastCallDoneAt).calendar()}</h4>}
             <form onSubmit={handleEditSubmit}>
               <div className="form-group">
                 <label>Call Status: <span className="required">*</span></label>
