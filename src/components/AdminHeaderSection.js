@@ -19,12 +19,12 @@ const AdminHeaderSection = () => {
   return (
     <div className="admin-header">
       <div className="admin-header-top">
-      <div className="user-header-left">
+      <div className="user-header-left" onClick={() => navigate('/admin')}>
         <img src={goRealtorsLogo} alt="Go Realtors" className="logo-image" />
       </div>
         <div className="admin-header-right">
           <div className="user-info">
-            <span>Welcome, {localStorage.getItem('user')}</span>
+            <span className="username"> Welcome, {localStorage.getItem('user')}</span>
           </div>
           <button className="mobile-menu-toggle" onClick={toggleMobileMenu}>
             <span></span>
@@ -36,11 +36,11 @@ const AdminHeaderSection = () => {
       
       <div className={`admin-actions-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="admin-actions">
-          <button onClick={() => navigate('/admin')}>Dashboard</button>
+          <button onClick={() => navigate('/admin-day-wise')}>Day Wise Report</button>
           <button onClick={() => navigate('/admin/create-user')}>Create User</button>
           <button onClick={() => navigate('/all-users')}>View Users</button>
           <button onClick={() => navigate('/operator-report')}>Reports</button>
-          <button onClick={() => navigate('/upload')}>Upload Data</button>
+          {/* <button onClick={() => navigate('/upload')}>Upload Data</button> */}
           <button onClick={() => navigate('/export')}>Export Data</button>
           <button onClick={handleLogout}>Logout</button>
         </div>

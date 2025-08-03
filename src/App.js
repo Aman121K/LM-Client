@@ -15,6 +15,7 @@ import Upload from './pages/Upload';
 import TLDashboard from './pages/TLDashboard';
 import ResaleLeads from './pages/ResaleLeads';
 import UserLeads from './pages/user-leads';
+import AdminDayWise from './pages/AdminDayWise';
 
 // Create a separate component for routes that uses useAuth
 const AppRoutes = () => {
@@ -53,6 +54,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requiredRole="admin">
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/admin-day-wise"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDayWise />
           </ProtectedRoute>
         }
       />
