@@ -40,8 +40,8 @@ const AdminHeaderSection = () => {
           <button onClick={() => navigate('/admin/create-user')}>Create User</button>
           <button onClick={() => navigate('/all-users')}>View Users</button>
           <button onClick={() => navigate('/operator-report')}>Reports</button>
-          {/* <button onClick={() => navigate('/upload')}>Upload Data</button> */}
-          <button onClick={() => navigate('/export')}>Export Data</button>
+          <button onClick={() => navigate('/upload')}>Upload Data</button>
+          {/* <button onClick={() => navigate('/export')}>Export Data</button> */}
           <button onClick={handleLogout}>Logout</button>
         </div>
       </div>
