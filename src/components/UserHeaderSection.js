@@ -50,9 +50,14 @@ const UserHeaderSection = () => {
           <button onClick={() => navigate('/report')} className="action-btn brochures-btn">
             Reports
           </button>
-          {userType=='tl' && (
+          {userType == 'tl' && (
             <button onClick={() => navigate('/user-leads')} className="action-btn brochures-btn">
               User's Lead
+            </button>
+          )}
+          {userType == 'tl' && (
+            <button onClick={() => navigate('/upload')} className="action-btn brochures-btn">
+             Upload Data
             </button>
           )}
           <button onClick={() => navigate('/resale-leads')} className="action-btn brochures-btn">
