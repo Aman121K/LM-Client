@@ -25,8 +25,9 @@ const UserLeads = () => {
 
   const fetchCallStatuses = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/leads/call-statuses?callBy=${user}`, {
+      const response = await fetch(`${BASE_URL}/users/all-users-call-status-from-tl/${user}`, {
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
@@ -44,7 +45,10 @@ const UserLeads = () => {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      let url = `${BASE_URL}/leads/?callby=${user}`;
+  //     curl -X GET "http://localhost:5000/api/leads/tl-data?tlName=JohnDoe&callStatus=NotInterested" \
+  // -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  // -H "Content-Type: application/json"
+      let url = `${BASE_URL}/leads/tl-data?tlName=${user}`;
       if (selectedStatus && selectedStatus !== 'all') {
         url += `&callStatus=${encodeURIComponent(selectedStatus)}`;
       }
