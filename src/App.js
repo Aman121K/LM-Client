@@ -100,7 +100,7 @@ const AppRoutes = () => {
       <Route
         path="/upload"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute >
             <Upload />
           </ProtectedRoute>
         }

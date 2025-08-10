@@ -40,12 +40,7 @@ const Upload = () => {
   const [success, setSuccess] = useState('');
   const [recentLeads, setRecentLeads] = useState([]);
 
-  useEffect(() => {
-    // Check if user is admin
-    if (userType?.toLowerCase() !== 'admin') {
-      navigate('/dashboard');
-    }
-  }, [userType, navigate]);
+
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -108,11 +103,6 @@ const Upload = () => {
       setLoading(false);
     }
   };
-
-  // If not admin, don't render the component
-  if (userType?.toLowerCase() !== 'admin') {
-    return null;
-  }
 
   return (
     <>
@@ -177,7 +167,7 @@ const Upload = () => {
                   <li>submiton</li>
                 </ul>
               </li>
-              <li>This feature is only available to administrators</li>
+              <li>This feature is only available to administrators and TL's</li>
             </ul>
           </div>
 
