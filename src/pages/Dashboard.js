@@ -54,15 +54,20 @@ const Dashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Static data - only fetch once on component mount
   useEffect(() => {
     fetchCallStatuses();
-    fetchProductsName()
+    fetchProductsName();
     fetchAllCallStatuses();
-    fetchLoginUserCallStatus();
     fetchBudgetList();
     fetchUnitList();
     fetchTlUsers();
-  }, [startDate, endDate, callStatus, mobileSearch, user,productName]);
+  }, []); // Empty dependency array - only runs once
+
+  // Dynamic data - fetch when filters change
+  useEffect(() => {
+    fetchLoginUserCallStatus();
+  }, [startDate, endDate, callStatus, mobileSearch, user, productName]);
 
   const fetchCallStatuses = async () => {
     try {
