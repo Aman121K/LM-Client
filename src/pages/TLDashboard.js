@@ -50,6 +50,7 @@ const TLDashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [tlUsers, setTlUsers] = useState([]);
+  const[allCallStatus,setAllCallStatuses]=useState([])
   const closedStatuses = [
     'Not Interested With Reason',
     'No Response-Lead Closed',
@@ -65,6 +66,7 @@ const TLDashboard = () => {
     fetchBudgetList();
     fetchUnitList();
     fetchTlUsers();
+    fetchAllCallStatuses()
   }, [startDate, endDate, callStatus, mobileSearch, user]);
 
   const fetchCallStatuses = async () => {
@@ -83,6 +85,25 @@ const TLDashboard = () => {
       }
     } catch (error) {
       setError('An error occurred while fetching call statuses');
+    }
+  };
+
+  const fetchAllCallStatuses = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/leads/allCallStatus`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setAllCallStatuses(data?.data);
+      } else {
+        setError(data.message || 'Failed to fetch all call statuses');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching all call statuses');
     }
   };
 
@@ -563,7 +584,7 @@ const TLDashboard = () => {
                   required
                 >
                   <option value="">Select Call Status</option>
-                  {callStatuses?.map((status, index) => (
+                  {allCallStatus?.map((status, index) => (
                     <option key={index} value={status?.name}>
                       {status?.name}
                     </option>
