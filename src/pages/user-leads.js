@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { BASE_URL } from '../config';
 import UserHeaderSection from '../components/UserHeaderSection';
 import './Dashboard.css';
+import Pagination from '../components/Pagination';
 
 const UserLeads = () => {
   const { user } = useAuth();
@@ -12,6 +13,10 @@ const UserLeads = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [viewingLead, setViewingLead] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
 
   useEffect(() => {
     fetchCallStatuses();
@@ -21,7 +26,7 @@ const UserLeads = () => {
     if (user) {
       fetchLeads();
     }
-  }, [user, selectedStatus]);
+  }, [user, selectedStatus, currentPage]); // Add currentPage dependency
 
   const fetchCallStatuses = async () => {
     try {
@@ -42,28 +47,48 @@ const UserLeads = () => {
     }
   };
 
+  // Update fetchLeads to handle the new pagination structure
   const fetchLeads = async () => {
     setLoading(true);
     try {
-  //     curl -X GET "http://localhost:5000/api/leads/tl-data?tlName=JohnDoe&callStatus=NotInterested" \
-  // -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  // -H "Content-Type: application/json"
-      let url = `${BASE_URL}/leads/tl-data?tlName=${user}`;
+      let url = `${BASE_URL}/leads/tl-data?tlName=${user}&page=${currentPage}&limit=${itemsPerPage}`;
       if (selectedStatus && selectedStatus !== 'all') {
         url += `&callStatus=${encodeURIComponent(selectedStatus)}`;
       }
+      
+      console.log("User Leads API URL:", url);
+      
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
       const data = await response.json();
+      console.log("User Leads API Response:", data);
+      
       if (data.success) {
-        setLeads(data.data || []);
+        const leadsData = data.data || [];
+        setLeads(leadsData);
+        
+        // Handle the new pagination structure from backend
+        if (data.pagination) {
+          // Use pagination object from backend
+          setTotalPages(data.pagination.totalPages || 1);
+          setTotalItems(data.pagination.totalItems || 0);
+          console.log("User Leads Using backend pagination:", data.pagination);
+        } else {
+          // Fallback to old structure
+          const total = data.total || leadsData.length;
+          const calculatedPages = Math.ceil(total / itemsPerPage);
+          setTotalPages(calculatedPages);
+          setTotalItems(total);
+          console.log("User Leads Using fallback pagination - Total:", total, "Pages:", calculatedPages);
+        }
       } else {
         setError(data.message || 'Failed to fetch leads');
       }
     } catch (error) {
+      console.error("User Leads API Error:", error);
       setError('An error occurred while fetching leads');
     } finally {
       setLoading(false);
@@ -83,6 +108,10 @@ const UserLeads = () => {
     const formattedNumber = cleanNumber;
     // const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     window.location.href = `tel:${formattedNumber}`;
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
   return (
@@ -121,7 +150,7 @@ const UserLeads = () => {
             <>
               <div className="lead-count-badge">
                 <span className="lead-count-label">Leads Found</span>
-                <span className="lead-count-number">{leads.length}</span>
+                <span className="lead-count-number">{totalItems}</span>
               </div>
               <div className="table-container">
                 <table>
@@ -166,6 +195,15 @@ const UserLeads = () => {
                   </tbody>
                 </table>
               </div>
+              {leads.length > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  totalItems={totalItems}
+                  itemsPerPage={itemsPerPage}
+                />
+              )}
             </>
           )}
         </section>

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { BASE_URL } from '../config';
 import UserHeaderSection from '../components/UserHeaderSection';
 import './Report.css';
+import Pagination from '../components/Pagination';
 
 const Report = () => {
   const { user, userType } = useAuth();
@@ -23,6 +24,12 @@ const Report = () => {
   const [usersUnderTL, setUsersUnderTL] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
 
+  // Add pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
+
   useEffect(() => {
     if (userType === 'tl') {
       fetchUsersUnderTL();
@@ -31,7 +38,7 @@ const Report = () => {
 
   useEffect(() => {
     fetchReportData();
-  }, [selectedUser, user]);
+  }, [selectedUser, user, currentPage]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -66,7 +73,9 @@ const Report = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          callBy
+          callBy,
+          page: currentPage,
+          limit: itemsPerPage
         })
       });
 
@@ -77,6 +86,8 @@ const Report = () => {
       const result = await response.json();
       if (result.success) {
         setReportData(result.data);
+        setTotalPages(Math.ceil((result.total || 0) / itemsPerPage));
+        setTotalItems(result.total || 0);
       } else {
         throw new Error(result.message || 'Failed to fetch report data');
       }
@@ -138,6 +149,10 @@ const Report = () => {
   const handleUserChange = (e) => {
     setSelectedUser(e.target.value);
     setSelectedDate(null); // Reset date selection on user change
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
   if (error) {
@@ -293,6 +308,15 @@ const Report = () => {
             </div>
           )}
         </div>
+        {reportData.databaseSummary.totalData > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+          />
+        )}
       </div>
     </>
   );

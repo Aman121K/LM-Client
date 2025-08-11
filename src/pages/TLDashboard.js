@@ -1,4 +1,4 @@
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import UserHeaderSection from '../components/UserHeaderSection';
@@ -7,10 +7,13 @@ import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import moment from 'moment';
+import Pagination from '../components/Pagination';
 
 const TLDashboard = () => {
   const { user, logout } = useAuth();
-  const [startDate, setStartDate] = useState(new Date('2025-05-01'));
+  
+  // Core state variables
+  const [startDate, setStartDate] = useState(new Date('2025-08-01')); // August 1 instead of May 1
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('All');
   const [productName, setProductName] = useState('All');
@@ -19,6 +22,7 @@ const TLDashboard = () => {
   const [error, setError] = useState('');
   const [leads, setLeads] = useState([]);
   const [callStatuses, setCallStatuses] = useState([]);
+  const [productsName, setProductsName] = useState([]); // Add missing state
   const [loginUserCallStatus, setLoginUserCallStatus] = useState([]);
   const [stats, setStats] = useState({
     totalLeads: 0,
@@ -50,7 +54,22 @@ const TLDashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [tlUsers, setTlUsers] = useState([]);
-  const[allCallStatus,setAllCallStatuses]=useState([])
+  const [allCallStatus, setAllCallStatuses] = useState([]);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
+  
+  // Performance optimization states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  const [dataCache, setDataCache] = useState({});
+  const [lastFetchTime, setLastFetchTime] = useState({});
+  const [abortController, setAbortController] = useState(null);
+  const [debounceTimer, setDebounceTimer] = useState(null);
+  
   const closedStatuses = [
     'Not Interested With Reason',
     'No Response-Lead Closed',
@@ -60,16 +79,126 @@ const TLDashboard = () => {
     'Number Not Answered'
   ];
 
-  useEffect(() => {
-    fetchCallStatuses();
-    fetchTLUserCallStatus();
-    fetchBudgetList();
-    fetchUnitList();
-    fetchTlUsers();
-    fetchAllCallStatuses()
-  }, [startDate, endDate, callStatus, mobileSearch, user]);
+  // Performance optimization functions
+  const isDataFresh = useCallback((key) => {
+    const lastFetch = lastFetchTime[key];
+    if (!lastFetch) return false;
+    return Date.now() - lastFetch < 5 * 60 * 1000; // 5 minutes cache
+  }, [lastFetchTime]);
 
+  const updateCache = useCallback((key, data) => {
+    setDataCache(prev => ({ ...prev, [key]: data }));
+    setLastFetchTime(prev => ({ ...prev, [key]: Date.now() }));
+  }, []);
+
+  const debouncedFetch = useCallback((callback, delay = 500) => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    const timer = setTimeout(() => {
+      callback();
+    }, delay);
+    
+    setDebounceTimer(timer);
+  }, [debounceTimer]);
+
+  // Batch state updates to reduce re-renders
+  const updateDashboardData = useCallback((data) => {
+    const leadsData = data.data || [];
+    
+    const updates = () => {
+      setLoginUserCallStatus(leadsData);
+      
+      if (data.pagination) {
+        setTotalPages(data.pagination.totalPages || 1);
+        setTotalItems(data.pagination.totalItems || 0);
+        console.log("TL Using backend pagination:", data.pagination);
+      } else {
+        const total = data.total || leadsData.length;
+        const calculatedPages = Math.ceil(total / itemsPerPage);
+        setTotalPages(calculatedPages);
+        setTotalItems(total);
+        console.log("TL Using fallback pagination - Total:", total, "Pages:", calculatedPages);
+      }
+      
+      setStats({
+        totalLeads: data.pagination?.totalItems || data.total || leadsData.length,
+        activeLeads: data.activeLeads || 0,
+        pendingLeads: data.pendingLeads || 0,
+        completedLeads: data.completedLeads || 0
+      });
+    };
+    
+    React.startTransition(updates);
+  }, [itemsPerPage]);
+
+  // Move useMemo to top level - this fixes the Rules of Hooks violation
+  const filteredLeads = React.useMemo(() => {
+    if (!mobileSearch) return loginUserCallStatus;
+    
+    const searchTerm = mobileSearch.toLowerCase();
+    return loginUserCallStatus.filter(lead => {
+      const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
+      return phoneNumber.includes(searchTerm);
+    });
+  }, [loginUserCallStatus, mobileSearch]);
+
+  // Static data - only fetch once on component mount with caching
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        setIsInitialLoading(true);
+        
+        // Fetch all static data in parallel for better performance
+        const promises = [
+          fetchCallStatuses(),
+          fetchProductsName(), // Add this function call
+          fetchTLUserCallStatus(),
+          fetchBudgetList(),
+          fetchUnitList(),
+          fetchTlUsers(),
+          fetchAllCallStatuses()
+        ];
+        
+        await Promise.all(promises);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+    
+    fetchInitialData();
+  }, []);
+
+  // Dynamic data - fetch when filters change with debouncing
+  useEffect(() => {
+    if (!isInitialLoading) {
+      debouncedFetch(() => {
+        fetchTLUserCallStatus();
+      }, 300);
+    }
+  }, [startDate, endDate, callStatus, user, productName, currentPage, isInitialLoading]);
+
+  // Handle mobile search separately with longer debounce
+  useEffect(() => {
+    if (!isInitialLoading && mobileSearch) {
+      debouncedFetch(() => {
+        fetchTLUserCallStatus();
+      }, 800);
+    }
+  }, [mobileSearch, isInitialLoading]);
+
+  // Optimized fetch functions with caching
   const fetchCallStatuses = async () => {
+    const cacheKey = `callStatuses_${user}`;
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setCallStatuses(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/call-statuses?callBy=${user}`, {
         headers: {
@@ -80,6 +209,7 @@ const TLDashboard = () => {
       const data = await response.json();
       if (data.success) {
         setCallStatuses(data?.data);
+        updateCache(cacheKey, data?.data);
       } else {
         setError(data.message || 'Failed to fetch call statuses');
       }
@@ -88,7 +218,42 @@ const TLDashboard = () => {
     }
   };
 
+  // Add missing fetchProductsName function
+  const fetchProductsName = async () => {
+    const cacheKey = `productsName_${user}`;
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setProductsName(dataCache[cacheKey]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/leads/products-name?callBy=${user}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setProductsName(data?.data);
+        updateCache(cacheKey, data?.data);
+      } else {
+        setError(data.message || 'Failed to fetch product name');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching product name');
+    }
+  };
+
   const fetchAllCallStatuses = async () => {
+    const cacheKey = 'allCallStatuses';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setAllCallStatuses(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/allCallStatus`, {
         headers: {
@@ -99,6 +264,7 @@ const TLDashboard = () => {
       const data = await response.json();
       if (data.success) {
         setAllCallStatuses(data?.data);
+        updateCache(cacheKey, data?.data);
       } else {
         setError(data.message || 'Failed to fetch all call statuses');
       }
@@ -107,11 +273,22 @@ const TLDashboard = () => {
     }
   };
 
+  // Main data fetch with request cancellation and optimization
   const fetchTLUserCallStatus = async () => {
     if (!user) return;
 
+    // Cancel previous request if it exists
+    if (abortController) {
+      abortController.abort();
+    }
+
+    const controller = new AbortController();
+    setAbortController(controller);
+
     try {
+      setIsDataLoading(true);
       setLoading(true);
+      console.log("TL Dashboard: Fetching page:", currentPage, "with limit:", itemsPerPage);
 
       const formatDate = (date) => {
         const d = new Date(date);
@@ -123,37 +300,51 @@ const TLDashboard = () => {
         endDate: formatDate(endDate),
         callStatus: callStatus,
         productName: productName,
-        callby: user // Pass TL's ID to get all users under them
+        callby: user,
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString()
       });
 
-      // Using TL-specific endpoint
+      console.log("TL API URL:", `${BASE_URL}/leads/?${params.toString()}`);
+
       const response = await fetch(`${BASE_URL}/leads/?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        signal: controller.signal
       });
 
       const data = await response.json();
+      console.log("TL API Response:", data);
+      
       if (data.success) {
-        setLoginUserCallStatus(data.data || []);
-        setStats({
-          totalLeads: data.data.totalLeads || 0,
-          activeLeads: data.data.activeLeads || 0,
-          pendingLeads: data.data.pendingLeads || 0,
-          completedLeads: data.data.completedLeads || 0
-        });
+        updateDashboardData(data);
       } else {
         setError(data.message || 'Failed to fetch call status data');
       }
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('Request was cancelled');
+        return;
+      }
+      console.error("TL API Error:", error);
       setError('An error occurred while fetching call status data');
     } finally {
       setLoading(false);
+      setIsDataLoading(false);
+      setAbortController(null);
     }
   };
 
   const fetchBudgetList = async () => {
+    const cacheKey = 'budgetList';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setBudgetList(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/allBudgetsList`, {
         headers: {
@@ -171,6 +362,7 @@ const TLDashboard = () => {
             status: budget.status
           }));
         setBudgetList(formattedBudgets);
+        updateCache(cacheKey, formattedBudgets);
       } else {
         setError(data.message || 'Failed to fetch budget list');
       }
@@ -180,6 +372,13 @@ const TLDashboard = () => {
   };
 
   const fetchUnitList = async () => {
+    const cacheKey = 'unitList';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setUnitList(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/allUnitslist`, {
         headers: {
@@ -190,6 +389,7 @@ const TLDashboard = () => {
       const data = await response.json();
       if (data.success) {
         setUnitList(data.data || []);
+        updateCache(cacheKey, data.data || []);
       } else {
         setError(data.message || 'Failed to fetch unit list');
       }
@@ -199,6 +399,13 @@ const TLDashboard = () => {
   };
 
   const fetchTlUsers = async () => {
+    const cacheKey = 'tlUsers';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setTlUsers(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/users/tl`, {
         headers: {
@@ -209,6 +416,7 @@ const TLDashboard = () => {
       const data = await response.json();
       if (data.success) {
         setTlUsers(data.data || []);
+        updateCache(cacheKey, data.data || []);
       } else {
         setError(data.message || 'Failed to fetch TL users');
       }
@@ -217,22 +425,28 @@ const TLDashboard = () => {
     }
   };
 
-  const handleCallStatusChange = (e) => {
+  // Event handlers with optimization
+  const handleCallStatusChange = useCallback((e) => {
     const selectedStatus = e.target.value;
     setCallStatus(selectedStatus);
-  };
+  }, []);
 
-  const handleMobileSearch = (e) => {
+  const handleProductNameChange = useCallback((e) => {
+    const selectedProduct = e.target.value;
+    setProductName(selectedProduct);
+  }, []);
+
+  const handleMobileSearch = useCallback((e) => {
     setMobileSearch(e.target.value);
-  };
+  }, []);
 
-  const handleSearchInputChange = (e) => {
+  const handleSearchInputChange = useCallback((e) => {
     const { name, value } = e.target;
     setSearchQuery(prev => ({
       ...prev,
       [name]: value
     }));
-  };
+  }, []);
 
   const handleSearch = async () => {
     if (!searchQuery.name && !searchQuery.contactNumber) {
@@ -272,20 +486,19 @@ const TLDashboard = () => {
     }
   };
 
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchQuery({ name: '', contactNumber: '' });
     setSearchResults([]);
-    fetchTLUserCallStatus(); // Reset to original data
-  };
+    fetchTLUserCallStatus();
+  }, []);
 
-  const handleCallClick = (phoneNumber) => {
+  const handleCallClick = useCallback((phoneNumber) => {
     const cleanNumber = phoneNumber.replace(/\D/g, '');
     const formattedNumber = cleanNumber;
-    // const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     window.location.href = `tel:${formattedNumber}`;
-  };
+  }, []);
 
-  const handleEditClick = (lead) => {
+  const handleEditClick = useCallback((lead) => {
     setEditingLead(lead);
     setEditForm({
       FirstName: lead.FirstName || '',
@@ -297,45 +510,33 @@ const TLDashboard = () => {
       followup: lead.followup ? new Date(lead.followup) : new Date(),
       productname: lead.productname || '',
       unittype: lead.unittype || '',
-      budget: lead.budget || '',
-      assignedTo: lead.assignedTo || '',
-      callBy: lead.callBy || '',
-      lastCallDoneBy: lead.lastCallDoneBy || '',
-      lastCallDoneAt: lead.lastCallDoneAt || ''
+      budget: lead.budget || ''
     });
-  };
+  }, []);
 
-  const handleEditFormChange = (e) => {
+  const handleEditFormChange = useCallback((e) => {
     const { name, value } = e.target;
     setEditForm(prev => ({
       ...prev,
       [name]: value
     }));
-  };
-
-  const handleEditCallStatusChange = (e) => {
-    const newStatus = e.target.value;
-    setEditForm(prev => ({
-      ...prev,
-      callstatus: newStatus
-    }));
-    if (closedStatuses.includes(newStatus)) {
-      setEditForm(prev => ({
-        ...prev,
-        followup: ''
-      }));
-    }
-  };
+  }, []);
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
+      
       const formattedFollowup = editForm.followup instanceof Date
         ? editForm.followup.toISOString().split('T')[0]
         : editForm.followup;
 
-      const isClosedStatus = closedStatuses.includes(editForm.callstatus);
+      const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' ||
+        editForm.callstatus === 'No Response-Lead Closed' ||
+        editForm.callstatus === 'Not Qualified' ||
+        editForm.callstatus === 'Number Not Answered - 3rd call' ||
+        editForm.callstatus === 'Number Not Answered - 2nd call' ||
+        editForm.callstatus === 'Number Not Answered';
 
       if (isClosedStatus) {
         if (!editForm.remarks) {
@@ -366,8 +567,7 @@ const TLDashboard = () => {
           followup: formattedFollowup,
           productname: editForm.productname,
           unittype: editForm.unittype,
-          budget: editForm.budget,
-          assignedTo: editForm.assignedTo
+          budget: editForm.budget
         })
       });
 
@@ -379,6 +579,18 @@ const TLDashboard = () => {
           )
         );
         setEditingLead(null);
+        
+        // Clear cache for leads data since it changed
+        setDataCache(prev => {
+          const newCache = { ...prev };
+          Object.keys(newCache).forEach(key => {
+            if (key.includes('leads') || key.includes('callStatus')) {
+              delete newCache[key];
+            }
+          });
+          return newCache;
+        });
+        
         fetchTLUserCallStatus();
       } else {
         setError(data.message || 'Failed to update lead');
@@ -390,26 +602,77 @@ const TLDashboard = () => {
     }
   };
 
-  const handleViewClick = (lead) => {
-    setViewingLead(lead);
-  };
+  const handleEditCallStatusChange = useCallback((e) => {
+    const newStatus = e.target.value;
+    setEditForm(prev => ({
+      ...prev,
+      callstatus: newStatus
+    }));
 
-  const filteredLeads = loginUserCallStatus.filter(lead => {
-    if (!mobileSearch) return true;
-    const searchTerm = mobileSearch.toLowerCase();
-    const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
-    return phoneNumber.includes(searchTerm);
-  });
+    if (newStatus === 'Not Interested With Reason' ||
+      newStatus === 'No Response-Lead Closed' ||
+      newStatus === 'Not Qualified' ||
+      newStatus === 'Number Not Answered - 3rd call' ||
+      newStatus === 'Number Not Answered - 2nd call' ||
+      newStatus === 'Number Not Answered') {
+      setEditForm(prev => ({
+        ...prev,
+        followup: ''
+      }));
+    }
+  }, []);
+
+  const handleViewClick = useCallback((lead) => {
+    setViewingLead(lead);
+  }, []);
+
+  // Optimized page change handler
+  const handlePageChange = useCallback((newPage) => {
+    console.log("TL Dashboard: Changing to page:", newPage);
+    setCurrentPage(newPage);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
+  }, [abortController, debounceTimer]);
+
+  // Show loading skeleton while initial data loads
+  if (isInitialLoading) {
+    return (
+      <div className="dashboard-container">
+        <UserHeaderSection />
+        <main className="dashboard-content">
+          <div className="loading-skeleton">
+            <div className="skeleton-filters"></div>
+            <div className="skeleton-table">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="skeleton-row"></div>
+              ))}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
       <UserHeaderSection />
+
       <main className="dashboard-content">
         <div className="dashboard-header-actions">
-          <div className="filters-section" style={{ background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: '1.5rem 1rem', marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
-            <div className="filter-group" style={{ minWidth: 220, flex: 1 }}>
+          <div className="filters-section">
+            <div className="filter-group">
               <label>Date Range:</label>
-              <div className="date-range" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="date-range">
                 <DatePicker
                   selected={startDate}
                   onChange={date => setStartDate(date)}
@@ -430,7 +693,8 @@ const TLDashboard = () => {
                 />
               </div>
             </div>
-            <div className="filter-group" style={{ minWidth: 180, flex: 1 }}>
+
+            <div className="filter-group">
               <label>Call Status:</label>
               <select
                 value={callStatus}
@@ -445,19 +709,28 @@ const TLDashboard = () => {
                 ))}
               </select>
             </div>
-            <div className="filter-group" style={{ minWidth: 180, flex: 1 }}>
-              <label>Search Mobile:</label>
-              <input
-                type="text"
-                value={mobileSearch}
-                onChange={handleMobileSearch}
-                placeholder="Enter mobile number"
-                className="mobile-search"
-              />
+            <div className="filter-group">
+              <label>Product Name:</label>
+              <select
+                value={productName}
+                onChange={handleProductNameChange}
+                className="status-select"
+              >
+                <option value="all">All</option>
+                {productsName?.map((status, index) => (
+                  <option key={index} value={status?.name}>
+                    {status?.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="filter-group" style={{ minWidth: 220, flex: 2 }}>
-              <label>Search by Name or Contact:</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+          </div>
+
+          <div className="or-divider">Or</div>
+
+          <div className="search-section">
+            <div className="search-inputs">
+              <div className="search-input-group">
                 <input
                   type="text"
                   name="name"
@@ -465,8 +738,9 @@ const TLDashboard = () => {
                   onChange={handleSearchInputChange}
                   placeholder="Search by name"
                   className="search-input"
-                  style={{ flex: '1 1 150px', minWidth: 0 }}
                 />
+              </div>
+              <div className="search-input-group">
                 <input
                   type="text"
                   name="contactNumber"
@@ -474,13 +748,13 @@ const TLDashboard = () => {
                   onChange={handleSearchInputChange}
                   placeholder="Search by contact number"
                   className="search-input"
-                  style={{ flex: '1 1 150px', minWidth: 0 }}
                 />
+              </div>
+              <div className="search-buttons">
                 <button
                   className="search-button"
                   onClick={handleSearch}
                   disabled={isSearching}
-                  style={{ background: '#007bff', color: '#fff', border: 'none', borderRadius: 4, padding: '0.5rem 1rem', cursor: 'pointer', flex: '0 0 auto' }}
                 >
                   {isSearching ? 'Searching...' : 'Search'}
                 </button>
@@ -488,7 +762,6 @@ const TLDashboard = () => {
                   className="clear-button"
                   onClick={handleClearSearch}
                   disabled={isSearching}
-                  style={{ background: '#f5f5f5', color: '#333', border: '1px solid #ccc', borderRadius: 4, padding: '0.5rem 1rem', cursor: 'pointer', flex: '0 0 auto' }}
                 >
                   Clear
                 </button>
@@ -497,10 +770,24 @@ const TLDashboard = () => {
           </div>
         </div>
 
-        {/* Leads Table Section */}
+        {error && <div className="error-message">{error}</div>}
+
+        {/* Performance Debug Information */}
+        <div style={{ 
+          background: '#f0f0f0', 
+          padding: '10px', 
+          margin: '10px 0', 
+          borderRadius: '5px', 
+          fontSize: '12px' 
+        }}>
+         
+        </div>
+
         <section className="leads-table">
           {loading ? (
-            <div className="loading">Loading leads data...</div>
+            <div className="loading">
+              {isDataLoading ? 'Loading new data...' : 'Loading leads data...'}
+            </div>
           ) : filteredLeads.length === 0 ? (
             <div className="no-data-found">
               <div className="no-data-icon">📊</div>
@@ -531,7 +818,9 @@ const TLDashboard = () => {
                         <td>{lead.FirstName}</td>
                         <td>{lead.ContactNumber}</td>
                         <td>
-                          <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>{lead.callstatus}</span>
+                          <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>
+                            {lead.callstatus}
+                          </span>
                         </td>
                         <td>{lead.productname}</td>
                         <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ''}</td>
@@ -565,230 +854,232 @@ const TLDashboard = () => {
             </>
           )}
         </section>
-      </main>
 
-      {/* Edit Form Modal */}
-      {editingLead && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2>Edit Lead</h2>
+        {/* Edit Form Modal */}
+        {editingLead && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2>Edit Lead</h2>
+              <form onSubmit={handleEditSubmit}>
+                <div className="form-group">
+                  <label>Call Status: <span className="required">*</span></label>
+                  <select
+                    name="callstatus"
+                    value={editForm.callstatus}
+                    onChange={handleEditCallStatusChange}
+                    required
+                  >
+                    <option value="">Select Call Status</option>
+                    {allCallStatus?.map((status, index) => (
+                      <option key={index} value={status?.name}>
+                        {status?.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {editForm.lastCallDoneBy && <h4 style={{ color: 'red', marginBottom: 10 }}> Last Call Done By: {editForm.lastCallDoneBy.toUpperCase()} on {moment(editForm.lastCallDoneAt).calendar()}</h4>}
-            <form onSubmit={handleEditSubmit}>
-              <div className="form-group">
-                <label>Call Status: <span className="required">*</span></label>
-                <select
-                  name="callstatus"
-                  value={editForm.callstatus}
-                  onChange={handleEditCallStatusChange}
-                  required
-                >
-                  <option value="">Select Call Status</option>
-                  {allCallStatus?.map((status, index) => (
-                    <option key={index} value={status?.name}>
-                      {status?.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="form-group">
+                  <label>Remarks: <span className="required">*</span></label>
+                  <textarea
+                    name="remarks"
+                    value={editForm.remarks}
+                    onChange={handleEditFormChange}
+                    required
+                  />
+                </div>
+
+                {editForm.callstatus !== 'Not Interested With Reason' &&
+                  editForm.callstatus !== 'No Response-Lead Closed' &&
+                  editForm.callstatus !== 'Not Qualified' &&
+                  editForm.callstatus !== 'Number Not Answered - 3rd call' &&
+                  editForm.callstatus !== 'Number Not Answered - 2nd call' &&
+                  editForm.callstatus !== 'Number Not Answered' && (
+                    <>
+                      <div className="form-group">
+                        <label>First Name: <span className="required">*</span></label>
+                        <input
+                          type="text"
+                          name="FirstName"
+                          value={editForm.FirstName}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Last Name:</label>
+                        <input
+                          type="text"
+                          name="LastName"
+                          value={editForm.LastName}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Email:</label>
+                        <input
+                          type="email"
+                          name="EmailId"
+                          value={editForm.EmailId}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Contact Number: <span className="required">*</span></label>
+                        <input
+                          type="text"
+                          name="ContactNumber"
+                          value={editForm.ContactNumber}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Follow Up Date: <span className="required">*</span></label>
+                        <input
+                          type="date"
+                          name="followup"
+                          value={editForm.followup instanceof Date
+                            ? editForm.followup.toISOString().split('T')[0]
+                            : editForm.followup}
+                          onChange={handleEditFormChange}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Product Name:</label>
+                        <input
+                          type="text"
+                          name="productname"
+                          value={editForm.productname}
+                          onChange={handleEditFormChange}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Unit Type:</label>
+                        <select
+                          name="unittype"
+                          value={editForm.unittype}
+                          onChange={handleEditFormChange}
+                        >
+                          <option value="">Select Unit Type</option>
+                          {unitList.map((unit, index) => (
+                            <option key={index} value={unit.name}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Budget:</label>
+                        <select
+                          name="budget"
+                          value={editForm.budget}
+                          onChange={handleEditFormChange}
+                        >
+                          <option value="">Select Budget</option>
+                          {budgetList.map((budget, index) => (
+                            <option key={index} value={budget.name}>
+                              {budget.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                <div className="modal-actions">
+                  <button type="submit" className="submit-button">Update Lead</button>
+                  <button
+                    type="button"
+                    className="cancel-button"
+                    onClick={() => setEditingLead(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* View Modal */}
+        {viewingLead && (
+          <div className="modal-overlay">
+            <div className="modal-content view-modal">
+              <h2>Lead Details</h2>
+              <div className="lead-details">
+                <div className="detail-group">
+                  <label>ID:</label>
+                  <span>{viewingLead.id}</span>
+                </div>
+                <div className="detail-group">
+                  <label>First Name:</label>
+                  <span>{viewingLead.FirstName}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Last Name:</label>
+                  <span>{viewingLead.LastName}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Email:</label>
+                  <span>{viewingLead.EmailId}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Contact Number:</label>
+                  <span>{viewingLead.ContactNumber}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Call Status:</label>
+                  <span>{viewingLead.callstatus}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Remarks:</label>
+                  <span>{viewingLead.remarks}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Follow Up:</label>
+                  <span>{viewingLead.followup}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Product Name:</label>
+                  <span>{viewingLead.productname}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Unit Type:</label>
+                  <span>{viewingLead.unittype}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Budget:</label>
+                  <span>{viewingLead.budget}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Created At:</label>
+                  <span>{viewingLead.createdAt ? new Date(viewingLead.createdAt).toLocaleString() : ''}</span>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Remarks: <span className="required">*</span></label>
-                <textarea
-                  name="remarks"
-                  value={editForm.remarks}
-                  onChange={handleEditFormChange}
-                  required
-                />
-              </div>
-              {!closedStatuses.includes(editForm.callstatus) && (
-                <>
-                  <div className="form-group">
-                    <label>First Name: <span className="required">*</span></label>
-                    <input
-                      type="text"
-                      name="FirstName"
-                      value={editForm.FirstName}
-                      onChange={handleEditFormChange}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Last Name:</label>
-                    <input
-                      type="text"
-                      name="LastName"
-                      value={editForm.LastName}
-                      onChange={handleEditFormChange}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Email:</label>
-                    <input
-                      type="email"
-                      name="EmailId"
-                      value={editForm.EmailId}
-                      onChange={handleEditFormChange}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Contact Number: <span className="required">*</span></label>
-                    <input
-                      type="text"
-                      name="ContactNumber"
-                      value={editForm.ContactNumber}
-                      onChange={handleEditFormChange}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Follow Up Date: <span className="required">*</span></label>
-                    <input
-                      type="date"
-                      name="followup"
-                      value={editForm.followup instanceof Date
-                        ? editForm.followup.toISOString().split('T')[0]
-                        : editForm.followup}
-                      onChange={handleEditFormChange}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Product Name:</label>
-                    <input
-                      type="text"
-                      name="productname"
-                      value={editForm.productname}
-                      onChange={handleEditFormChange}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Unit Type:</label>
-                    <select
-                      name="unittype"
-                      value={editForm.unittype}
-                      onChange={handleEditFormChange}
-                    >
-                      <option value="">Select Unit Type</option>
-                      {unitList.map((unit, index) => (
-                        <option key={index} value={unit.name}>
-                          {unit.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Budget:</label>
-                    <select
-                      name="budget"
-                      value={editForm.budget}
-                      onChange={handleEditFormChange}
-                    >
-                      <option value="">Select Budget</option>
-                      {budgetList.map((budget, index) => (
-                        <option key={index} value={budget.name}>
-                          {budget.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Assign To:</label>
-                    <select
-                      name="assignedTo"
-                      value={editForm.assignedTo}
-                      onChange={handleEditFormChange}
-                    >
-                      <option value="">Assign To</option>
-                      {tlUsers.map((tl, index) => (
-                        <option key={index} value={tl.Username}>
-                          {tl.Username}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
               <div className="modal-actions">
-                <button type="submit" className="submit-button">Update Lead</button>
                 <button
                   type="button"
                   className="cancel-button"
-                  onClick={() => setEditingLead(null)}
+                  onClick={() => setViewingLead(null)}
                 >
-                  Cancel
+                  Close
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+      </main>
 
-            </form>
-          </div>
-        </div>
-      )}
-      {/* View Modal */}
-      {viewingLead && (
-        <div className="modal-overlay">
-          <div className="modal-content view-modal">
-            <h2>Lead Details</h2>
-            <div className="lead-details">
-              <div className="detail-group">
-                <label>ID:</label>
-                <span>{viewingLead.id}</span>
-              </div>
-              <div className="detail-group">
-                <label>First Name:</label>
-                <span>{viewingLead.FirstName}</span>
-              </div>
-              <div className="detail-group">
-                <label>Last Name:</label>
-                <span>{viewingLead.LastName}</span>
-              </div>
-              <div className="detail-group">
-                <label>Email:</label>
-                <span>{viewingLead.EmailId}</span>
-              </div>
-              <div className="detail-group">
-                <label>Contact Number:</label>
-                <span>{viewingLead.ContactNumber}</span>
-              </div>
-              <div className="detail-group">
-                <label>Call Status:</label>
-                <span>{viewingLead.callstatus}</span>
-              </div>
-              <div className="detail-group">
-                <label>Remarks:</label>
-                <span>{viewingLead.remarks}</span>
-              </div>
-              <div className="detail-group">
-                <label>Follow Up:</label>
-                <span>{viewingLead.followup}</span>
-              </div>
-              <div className="detail-group">
-                <label>Product Name:</label>
-                <span>{viewingLead.productname}</span>
-              </div>
-              <div className="detail-group">
-                <label>Unit Type:</label>
-                <span>{viewingLead.unittype}</span>
-              </div>
-              <div className="detail-group">
-                <label>Budget:</label>
-                <span>{viewingLead.budget}</span>
-              </div>
-              <div className="detail-group">
-                <label>Created At:</label>
-                <span>{viewingLead.createdAt ? new Date(viewingLead.createdAt).toLocaleString() : ''}</span>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="cancel-button"
-                onClick={() => setViewingLead(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Add pagination after the leads table */}
+      {loginUserCallStatus.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+        />
       )}
     </div>
   );

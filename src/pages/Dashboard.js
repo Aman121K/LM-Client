@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import UserHeaderSection from '../components/UserHeaderSection';
@@ -6,11 +6,15 @@ import { BASE_URL } from '../config';
 import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import Pagination from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   console.log("users is>>", user)
-  const [startDate, setStartDate] = useState(new Date('2025-05-01'));
+  
+  // Core state variables
+  const [startDate, setStartDate] = useState(new Date('2025-08-01')); // August 1 instead of May 1
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('All');
   const [productName, setProductName] = useState('All');
@@ -54,22 +58,140 @@ const Dashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Static data - only fetch once on component mount
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
+  const [apiResponse, setApiResponse] = useState(null);
+
+  // Performance optimization states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  const [dataCache, setDataCache] = useState({});
+  const [lastFetchTime, setLastFetchTime] = useState({});
+  const [abortController, setAbortController] = useState(null);
+  const [debounceTimer, setDebounceTimer] = useState(null);
+
+  // Replace the manual pagination states with the hook
+  const {
+    handlePageChange: hookHandlePageChange,
+    updatePaginationData,
+    resetPagination
+  } = usePagination(currentPage, itemsPerPage);
+
+  // Performance optimization functions
+  const isDataFresh = useCallback((key) => {
+    const lastFetch = lastFetchTime[key];
+    if (!lastFetch) return false;
+    return Date.now() - lastFetch < 5 * 60 * 1000; // 5 minutes cache
+  }, [lastFetchTime]);
+
+  const updateCache = useCallback((key, data) => {
+    setDataCache(prev => ({ ...prev, [key]: data }));
+    setLastFetchTime(prev => ({ ...prev, [key]: Date.now() }));
+  }, []);
+
+  const debouncedFetch = useCallback((callback, delay = 500) => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    const timer = setTimeout(() => {
+      callback();
+    }, delay);
+    
+    setDebounceTimer(timer);
+  }, [debounceTimer]);
+
+  // Batch state updates to reduce re-renders
+  const updateDashboardData = useCallback((data) => {
+    const leadsData = data.data || [];
+    
+    // Batch all state updates together
+    const updates = () => {
+      setLeads(leadsData);
+      setLoginUserCallStatus(leadsData);
+      
+      if (data.pagination) {
+        setTotalPages(data.pagination.totalPages || 1);
+        setTotalItems(data.pagination.totalItems || 0);
+        console.log("Using backend pagination:", data.pagination);
+      } else {
+        const total = data.total || leadsData.length;
+        const calculatedPages = Math.ceil(total / itemsPerPage);
+        setTotalPages(calculatedPages);
+        setTotalItems(total);
+        console.log("Using fallback pagination - Total:", total, "Pages:", calculatedPages);
+      }
+      
+      setStats({
+        totalLeads: data.pagination?.totalItems || data.total || leadsData.length,
+        activeLeads: data.activeLeads || 0,
+        pendingLeads: data.pendingLeads || 0,
+        completedLeads: data.completedLeads || 0
+      });
+    };
+    
+    // Use React's batch update for better performance
+    React.startTransition(updates);
+  }, [itemsPerPage]);
+
+  // Static data - only fetch once on component mount with caching
   useEffect(() => {
-    fetchCallStatuses();
-    fetchProductsName();
-    fetchAllCallStatuses();
-    fetchBudgetList();
-    fetchUnitList();
-    fetchTlUsers();
+    const fetchInitialData = async () => {
+      try {
+        setIsInitialLoading(true);
+        
+        // Fetch all static data in parallel for better performance
+        const promises = [
+          fetchCallStatuses(),
+          fetchProductsName(),
+          fetchAllCallStatuses(),
+          fetchBudgetList(),
+          fetchUnitList(),
+          fetchTlUsers()
+        ];
+        
+        await Promise.all(promises);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+    
+    fetchInitialData();
   }, []); // Empty dependency array - only runs once
 
-  // Dynamic data - fetch when filters change
+  // Dynamic data - fetch when filters change with debouncing
   useEffect(() => {
-    fetchLoginUserCallStatus();
-  }, [startDate, endDate, callStatus, mobileSearch, user, productName]);
+    if (!isInitialLoading) {
+      debouncedFetch(() => {
+        fetchLoginUserCallStatus();
+      }, 300); // 300ms debounce for better UX
+    }
+  }, [startDate, endDate, callStatus, user, productName, currentPage, isInitialLoading]);
 
+  // Handle mobile search separately with longer debounce
+  useEffect(() => {
+    if (!isInitialLoading && mobileSearch) {
+      debouncedFetch(() => {
+        fetchLoginUserCallStatus();
+      }, 800); // 800ms debounce for search
+    }
+  }, [mobileSearch, isInitialLoading]);
+
+  // Optimized fetch functions with caching
   const fetchCallStatuses = async () => {
+    const cacheKey = `callStatuses_${user}`;
+    
+    // Check cache first
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setCallStatuses(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/call-statuses?callBy=${user}`, {
         headers: {
@@ -80,6 +202,7 @@ const Dashboard = () => {
       const data = await response.json();
       if (data.success) {
         setCallStatuses(data?.data);
+        updateCache(cacheKey, data?.data);
       } else {
         setError(data.message || 'Failed to fetch call statuses');
       }
@@ -87,7 +210,15 @@ const Dashboard = () => {
       setError('An error occurred while fetching call statuses');
     }
   };
+
   const fetchProductsName = async () => {
+    const cacheKey = `productsName_${user}`;
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setProductsName(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/products-name?callBy=${user}`, {
         headers: {
@@ -98,6 +229,7 @@ const Dashboard = () => {
       const data = await response.json();
       if (data.success) {
         setProductsName(data?.data);
+        updateCache(cacheKey, data?.data);
       } else {
         setError(data.message || 'Failed to fetch product name');
       }
@@ -107,6 +239,13 @@ const Dashboard = () => {
   };
 
   const fetchAllCallStatuses = async () => {
+    const cacheKey = 'allCallStatuses';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setAllCallStatuses(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/allCallStatus`, {
         headers: {
@@ -117,6 +256,7 @@ const Dashboard = () => {
       const data = await response.json();
       if (data.success) {
         setAllCallStatuses(data?.data);
+        updateCache(cacheKey, data?.data);
       } else {
         setError(data.message || 'Failed to fetch all call statuses');
       }
@@ -125,54 +265,91 @@ const Dashboard = () => {
     }
   };
 
+  // Main data fetch with request cancellation and optimization
   const fetchLoginUserCallStatus = async () => {
-    if (!user) return; // Don't fetch if user is not available
+    if (!user) return;
+
+    // Cancel previous request if it exists
+    if (abortController) {
+      abortController.abort();
+    }
+
+    const controller = new AbortController();
+    setAbortController(controller);
 
     try {
+      setIsDataLoading(true);
       setLoading(true);
-      console.log("user>>>>>>>>", user);
+      console.log("Fetching page:", currentPage, "with limit:", itemsPerPage);
 
-      // Format dates to YYYY-MM-DD without time
       const formatDate = (date) => {
         const d = new Date(date);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       };
 
       const params = new URLSearchParams({
+        callBy: user,
         startDate: formatDate(startDate),
         endDate: formatDate(endDate),
-        callStatus: callStatus,
-        callby: user,
-        productname: productName
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString()
       });
+
+      if (callStatus !== 'All') {
+        params.append('callStatus', callStatus);
+      }
+      if (productName !== 'All') {
+        params.append('productName', productName);
+      }
+      if (mobileSearch) {
+        params.append('mobileSearch', mobileSearch);
+      }
+
+      console.log("API URL:", `${BASE_URL}/leads/?${params.toString()}`);
 
       const response = await fetch(`${BASE_URL}/leads/?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        signal: controller.signal
       });
 
       const data = await response.json();
+      
+      // Store the API response for debugging
+      setApiResponse(data);
+      console.log("API Response:", data);
+      
       if (data.success) {
-        setLoginUserCallStatus(data.data || []);
-        setStats({
-          totalLeads: data.data.totalLeads || 0,
-          activeLeads: data.data.activeLeads || 0,
-          pendingLeads: data.data.pendingLeads || 0,
-          completedLeads: data.data.completedLeads || 0
-        });
+        // Use optimized batch update function
+        updateDashboardData(data);
       } else {
         setError(data.message || 'Failed to fetch call status data');
       }
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('Request was cancelled');
+        return;
+      }
+      console.error("API Error:", error);
       setError('An error occurred while fetching call status data');
     } finally {
       setLoading(false);
+      setIsDataLoading(false);
+      setAbortController(null);
     }
   };
 
+  // Optimized fetch functions for other data
   const fetchBudgetList = async () => {
+    const cacheKey = 'budgetList';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setBudgetList(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/allBudgetsList`, {
         headers: {
@@ -183,15 +360,15 @@ const Dashboard = () => {
       const data = await response.json();
       if (data.success) {
         console.log("budget list data>>", data.data);
-        // Format the data to use namew field and filter out 0000
         const formattedBudgets = data.data
-          .filter(budget => budget.id && budget.namew && !budget.namew.includes('0000')) // Filter out 0000 and null values
+          .filter(budget => budget.id && budget.namew && !budget.namew.includes('0000'))
           .map(budget => ({
             id: budget.id,
             name: budget.namew || `Budget ${budget.id}`,
             status: budget.status
           }));
         setBudgetList(formattedBudgets);
+        updateCache(cacheKey, formattedBudgets);
       } else {
         setError(data.message || 'Failed to fetch budget list');
       }
@@ -201,6 +378,13 @@ const Dashboard = () => {
   };
 
   const fetchUnitList = async () => {
+    const cacheKey = 'unitList';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setUnitList(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/leads/allUnitslist`, {
         headers: {
@@ -211,6 +395,7 @@ const Dashboard = () => {
       const data = await response.json();
       if (data.success) {
         setUnitList(data.data || []);
+        updateCache(cacheKey, data.data || []);
       } else {
         setError(data.message || 'Failed to fetch unit list');
       }
@@ -220,6 +405,13 @@ const Dashboard = () => {
   };
 
   const fetchTlUsers = async () => {
+    const cacheKey = 'tlUsers';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setTlUsers(dataCache[cacheKey]);
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/users/tl`, {
         headers: {
@@ -230,6 +422,7 @@ const Dashboard = () => {
       const data = await response.json();
       if (data.success) {
         setTlUsers(data.data || []);
+        updateCache(cacheKey, data.data || []);
       } else {
         setError(data.message || 'Failed to fetch TL users');
       }
@@ -238,37 +431,39 @@ const Dashboard = () => {
     }
   };
 
-  const handleCallStatusChange = (e) => {
-    // console.log("selected data>>", e?.target?.value);
+  // Event handlers with optimization
+  const handleCallStatusChange = useCallback((e) => {
     const selectedStatus = e.target.value;
     setCallStatus(selectedStatus);
-  };
-  const handleProductNameChange = (e) => {
-    // console.log("selected data>>", e?.target?.value);
+  }, []);
+
+  const handleProductNameChange = useCallback((e) => {
     const productName = e.target.value;
     setProductName(productName);
-  };
+  }, []);
 
-  const handleCallClick = (phoneNumber) => {
-    // Remove any non-numeric characters and ensure it starts with 91
+  const handleCallClick = useCallback((phoneNumber) => {
     const cleanNumber = phoneNumber.replace(/\D/g, '');
     const formattedNumber = cleanNumber;
-    // const formattedNumber = cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     window.location.href = `tel:${formattedNumber}`;
-  };
+  }, []);
 
-  const handleMobileSearch = (e) => {
+  const handleMobileSearch = useCallback((e) => {
     setMobileSearch(e.target.value);
-  };
+  }, []);
 
-  const filteredLeads = loginUserCallStatus.filter(lead => {
-    if (!mobileSearch) return true;
+  // Optimized filtered leads with useMemo equivalent
+  const filteredLeads = React.useMemo(() => {
+    if (!mobileSearch) return loginUserCallStatus;
+    
     const searchTerm = mobileSearch.toLowerCase();
-    const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
-    return phoneNumber.includes(searchTerm);
-  });
+    return loginUserCallStatus.filter(lead => {
+      const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
+      return phoneNumber.includes(searchTerm);
+    });
+  }, [loginUserCallStatus, mobileSearch]);
 
-  const handleEditClick = (lead) => {
+  const handleEditClick = useCallback((lead) => {
     setEditingLead(lead);
     setEditForm({
       FirstName: lead.FirstName || '',
@@ -283,26 +478,25 @@ const Dashboard = () => {
       budget: lead.budget || '',
       assignedTo: lead.assignedTo || ''
     });
-  };
+  }, []);
 
-  const handleEditFormChange = (e) => {
+  const handleEditFormChange = useCallback((e) => {
     const { name, value } = e.target;
     setEditForm(prev => ({
       ...prev,
       [name]: value
     }));
-  };
+  }, []);
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-      // Format the followup date to YYYY-MM-DD
+      
       const formattedFollowup = editForm.followup instanceof Date
         ? editForm.followup.toISOString().split('T')[0]
         : editForm.followup;
 
-      // Check if call status is one of the closed statuses
       const isClosedStatus = editForm.callstatus === 'Not Interested With Reason' ||
         editForm.callstatus === 'No Response-Lead Closed' ||
         editForm.callstatus === 'Not Qualified' ||
@@ -310,14 +504,12 @@ const Dashboard = () => {
         editForm.callstatus === 'Number Not Answered - 2nd call' ||
         editForm.callstatus === 'Number Not Answered';
 
-      // Validate required fields based on call status
       if (isClosedStatus) {
         if (!editForm.remarks) {
           setError('Remarks are required for closed leads');
           return;
         }
       } else {
-        // Validate all required fields for active leads
         if (!editForm.FirstName || !editForm.ContactNumber ||
           !editForm.callstatus || !editForm.remarks || !editForm.followup) {
           setError('Please fill in all required fields');
@@ -354,6 +546,18 @@ const Dashboard = () => {
           )
         );
         setEditingLead(null);
+        
+        // Clear cache for leads data since it changed
+        setDataCache(prev => {
+          const newCache = { ...prev };
+          Object.keys(newCache).forEach(key => {
+            if (key.includes('leads') || key.includes('callStatus')) {
+              delete newCache[key];
+            }
+          });
+          return newCache;
+        });
+        
         fetchLoginUserCallStatus();
       } else {
         setError(data.message || 'Failed to update lead');
@@ -365,15 +569,13 @@ const Dashboard = () => {
     }
   };
 
-  // Add this new function to handle call status change in edit form
-  const handleEditCallStatusChange = (e) => {
+  const handleEditCallStatusChange = useCallback((e) => {
     const newStatus = e.target.value;
     setEditForm(prev => ({
       ...prev,
       callstatus: newStatus
     }));
 
-    // If status is closed or number not answered, clear followup date
     if (newStatus === 'Not Interested With Reason' ||
       newStatus === 'No Response-Lead Closed' ||
       newStatus === 'Not Qualified' ||
@@ -385,19 +587,19 @@ const Dashboard = () => {
         followup: ''
       }));
     }
-  };
+  }, []);
 
-  const handleViewClick = (lead) => {
+  const handleViewClick = useCallback((lead) => {
     setViewingLead(lead);
-  };
+  }, []);
 
-  const handleSearchInputChange = (e) => {
+  const handleSearchInputChange = useCallback((e) => {
     const { name, value } = e.target;
     setSearchQuery(prev => ({
       ...prev,
       [name]: value
     }));
-  };
+  }, []);
 
   const handleSearch = async () => {
     if (!searchQuery.name && !searchQuery.contactNumber) {
@@ -424,7 +626,8 @@ const Dashboard = () => {
       const data = await response.json();
       if (data.success) {
         setSearchResults(data.data.leads);
-        setLoginUserCallStatus(data.data.leads); // Update the main leads list with search results
+        setLoginUserCallStatus(data.data.leads);
+        resetPagination();
       } else {
         setError(data.message || 'Search failed');
         setSearchResults([]);
@@ -437,11 +640,70 @@ const Dashboard = () => {
     }
   };
 
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchQuery({ name: '', contactNumber: '' });
     setSearchResults([]);
-    fetchLoginUserCallStatus(); // Reset to original data
-  };
+    resetPagination();
+    fetchLoginUserCallStatus();
+  }, []);
+
+  // Optimized page change handler
+  const handlePageChange = useCallback((newPage) => {
+    console.log("Changing to page:", newPage);
+    setCurrentPage(newPage);
+  }, []);
+
+  // Date range presets for better UX
+  const dateRangePresets = [
+    { label: 'Last 7 Days', value: 7 },
+    { label: 'Last 30 Days', value: 30 },
+    { label: 'Last 60 Days', value: 60 },
+    { label: 'Last 90 Days', value: 90 },
+    { label: 'Custom Range', value: 'custom' }
+  ];
+
+  // Date range preset handler
+  const handleDateRangePreset = useCallback((days) => {
+    if (days === 'custom') return; // Allow manual selection
+    
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
+  }, [abortController, debounceTimer]);
+
+  // Show loading skeleton while initial data loads
+  if (isInitialLoading) {
+    return (
+      <div className="dashboard-container">
+        <UserHeaderSection />
+        <main className="dashboard-content">
+          <div className="loading-skeleton">
+            <div className="skeleton-filters"></div>
+            <div className="skeleton-table">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="skeleton-row"></div>
+              ))}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
@@ -451,7 +713,20 @@ const Dashboard = () => {
         <div className="dashboard-header-actions">
           <div className="filters-section">
             <div className="filter-group">
-              <label>Date Range:</label>
+              <label>Quick Date Range:</label>
+              <select 
+                onChange={(e) => handleDateRangePreset(parseInt(e.target.value))}
+                className="date-preset-select"
+                style={{ marginBottom: '10px' }}
+              >
+                {dateRangePresets.map(preset => (
+                  <option key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+              
+              <label>Custom Date Range:</label>
               <div className="date-range">
                 <DatePicker
                   selected={startDate}
@@ -504,17 +779,6 @@ const Dashboard = () => {
                 ))}
               </select>
             </div>
-
-            {/* <div className="filter-group">
-              <label>Search Mobile:</label>
-              <input
-                type="text"
-                value={mobileSearch}
-                onChange={handleMobileSearch}
-                placeholder="Enter mobile number"
-                className="mobile-search"
-              />
-            </div> */}
           </div>
 
           <div className="or-divider">Or</div>
@@ -569,9 +833,22 @@ const Dashboard = () => {
 
         {error && <div className="error-message">{error}</div>}
 
+        {/* Performance Debug Information */}
+        <div style={{ 
+          background: '#f0f0f0', 
+          padding: '10px', 
+          margin: '10px 0', 
+          borderRadius: '5px', 
+          fontSize: '12px' 
+        }}>
+         
+        </div>
+
         <section className="leads-table">
           {loading ? (
-            <div className="loading">Loading leads data...</div>
+            <div className="loading">
+              {isDataLoading ? 'Loading new data...' : 'Loading leads data...'}
+            </div>
           ) : filteredLeads.length === 0 ? (
             <div className="no-data-found">
               <div className="no-data-icon">📊</div>
@@ -588,10 +865,8 @@ const Dashboard = () => {
                 <table>
                   <thead>
                     <tr>
-                      {/* <th>ID</th> */}
                       <th>Name</th>
                       <th>Mobile</th>
-                      {/* <th>Email</th> */}
                       <th>Call Status</th>
                       <th>Product Name</th>
                       <th>Date</th>
@@ -601,12 +876,10 @@ const Dashboard = () => {
                   <tbody>
                     {filteredLeads.map(lead => (
                       <tr key={lead.id}>
-                        {/* <td>{lead.id}</td> */}
                         <td>{lead.FirstName}</td>
                         <td>{lead.ContactNumber}</td>
-                        {/* <td>{lead.EmailId}</td> */}
                         <td>
-                          <span className={`status-badge ${lead?.callstatus.toLowerCase()}`}>
+                          <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>
                             {lead.callstatus}
                           </span>
                         </td>
@@ -878,6 +1151,17 @@ const Dashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Add pagination after the leads table */}
+      {loginUserCallStatus.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+        />
+      )}
     </div>
   );
 };
