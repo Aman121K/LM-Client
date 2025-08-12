@@ -203,7 +203,7 @@ const Report = () => {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th colSpan="2" className="table-header">Database</th>
+                  <th colSpan="2" className="table-header">Database Full Records</th>
                 </tr>
               </thead>
               <tbody>
@@ -228,7 +228,7 @@ const Report = () => {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th colSpan="2" className="table-header">Overall Calling Status</th>
+                  <th colSpan="2" className="table-header">Overall Calling Status Current Month</th>
                 </tr>
               </thead>
               <tbody>
@@ -254,7 +254,7 @@ const Report = () => {
             <table className="report-table">
               <thead>
                 <tr>
-                  <th colSpan="2" className="table-header">Date-wise Calling Status</th>
+                  <th colSpan="2" className="table-header">Date-wise Calling Status Current Month</th>
                 </tr>
               </thead>
               <tbody>
@@ -287,10 +287,10 @@ const Report = () => {
                   {selectedDateStatus.length > 0 ? (
                     selectedDateStatus
                       .filter(status => ![
-                        'Not Qualified',
-                        'Interested But Out Of Budget',
-                        'Booking Done',
-                        'Number Not Answered - 3rd call'
+                        // 'Not Qualified',
+                        // 'Interested But Out Of Budget',
+                        // 'Booking Done',
+                        // 'Number Not Answered - 3rd call'
                       ].includes(status.callstatus))
                       .map((status, index) => (
                         <tr key={index}>
