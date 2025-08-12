@@ -299,7 +299,7 @@ const Dashboard = () => {
         params.append('callStatus', callStatus);
       }
       if (productName !== 'All') {
-        params.append('productName', productName);
+        params.append('productname', productName);
       }
       if (mobileSearch) {
         params.append('mobileSearch', mobileSearch);
