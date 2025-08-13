@@ -14,7 +14,7 @@ const Dashboard = () => {
   console.log("users is>>", user)
   
   // Core state variables
-  const [startDate, setStartDate] = useState(new Date('2025-08-01')); // August 1 instead of May 1
+  const [startDate, setStartDate] = useState(new Date('2025-04-01')); // August 1 instead of May 1
   const [endDate, setEndDate] = useState(new Date());
   const [callStatus, setCallStatus] = useState('All');
   const [productName, setProductName] = useState('All');
@@ -24,6 +24,7 @@ const Dashboard = () => {
   const [leads, setLeads] = useState([]);
   const [callStatuses, setCallStatuses] = useState([]);
   const [productsName, setProductsName] = useState([]);
+  const [filteredProductsName, setFilteredProductsName] = useState([]); // New state for filtered products
   const [allCallStatuses, setAllCallStatuses] = useState([]);
   const [loginUserCallStatus, setLoginUserCallStatus] = useState([]);
   const [tlUsers, setTlUsers] = useState([]);
@@ -62,7 +63,7 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage] = useState(60); // Updated from 20 to 60
   const [apiResponse, setApiResponse] = useState(null);
 
   // Performance optimization states
@@ -104,9 +105,45 @@ const Dashboard = () => {
     setDebounceTimer(timer);
   }, [debounceTimer]);
 
+  // New function to filter products based on selected call status
+  const filterProductsByCallStatus = useCallback((selectedCallStatus, leadsData = null) => {
+    console.log('filterProductsByCallStatus called with:', selectedCallStatus);
+    console.log('Current loginUserCallStatus:', loginUserCallStatus);
+    console.log('Leads data passed:', leadsData);
+    
+    if (selectedCallStatus === 'All') {
+      setFilteredProductsName(productsName);
+      return;
+    }
+
+    // Use the passed leadsData if available, otherwise use loginUserCallStatus
+    const dataToFilter = leadsData || loginUserCallStatus;
+    console.log('Data to filter:', dataToFilter);
+
+    // Filter leads by selected call status and extract unique product names
+    const filteredLeads = dataToFilter.filter(lead => 
+      lead.callstatus === selectedCallStatus
+    );
+    
+    console.log('Filtered leads for status:', selectedCallStatus, filteredLeads);
+
+    const uniqueProducts = [...new Set(
+      filteredLeads
+        .map(lead => lead.productname)
+        .filter(product => product && product.trim() !== '')
+    )];
+
+    // Create product objects with name property to match the structure
+    const filteredProducts = uniqueProducts.map(product => ({ name: product }));
+    setFilteredProductsName(filteredProducts);
+    
+    console.log('Final filtered products:', filteredProducts);
+  }, [loginUserCallStatus, productsName]);
+
   // Batch state updates to reduce re-renders
   const updateDashboardData = useCallback((data) => {
     const leadsData = data.data || [];
+    console.log('updateDashboardData called with leads:', leadsData);
     
     // Batch all state updates together
     const updates = () => {
@@ -135,7 +172,12 @@ const Dashboard = () => {
     
     // Use React's batch update for better performance
     React.startTransition(updates);
-  }, [itemsPerPage]);
+    
+    // Filter products after state updates, passing the leads data directly
+    setTimeout(() => {
+      filterProductsByCallStatus(callStatus, leadsData);
+    }, 0);
+  }, [itemsPerPage, callStatus, filterProductsByCallStatus]);
 
   // Static data - only fetch once on component mount with caching
   useEffect(() => {
@@ -171,7 +213,7 @@ const Dashboard = () => {
         fetchLoginUserCallStatus();
       }, 300); // 300ms debounce for better UX
     }
-  }, [startDate, endDate, callStatus, user, productName, currentPage, isInitialLoading]);
+  }, [startDate, endDate, callStatus, user, currentPage, isInitialLoading]); // Removed productName
 
   // Handle mobile search separately with longer debounce
   useEffect(() => {
@@ -434,12 +476,23 @@ const Dashboard = () => {
   // Event handlers with optimization
   const handleCallStatusChange = useCallback((e) => {
     const selectedStatus = e.target.value;
+    console.log('Call status changed to:', selectedStatus);
     setCallStatus(selectedStatus);
-  }, []);
+    
+    // Reset product name to 'All' when call status changes
+    setProductName('All');
+    
+    // Filter products based on selected call status
+    filterProductsByCallStatus(selectedStatus);
+  }, [filterProductsByCallStatus]);
 
+  // Update product name change handler to filter locally
   const handleProductNameChange = useCallback((e) => {
-    const productName = e.target.value;
-    setProductName(productName);
+    const selectedProduct = e.target.value;
+    setProductName(selectedProduct);
+    
+    // Don't trigger API call - we'll filter locally
+    console.log('Product name changed to:', selectedProduct);
   }, []);
 
   const handleCallClick = useCallback((phoneNumber) => {
@@ -452,16 +505,28 @@ const Dashboard = () => {
     setMobileSearch(e.target.value);
   }, []);
 
-  // Optimized filtered leads with useMemo equivalent
+  // Optimized filtered leads with useMemo equivalent - updated to include product filtering
   const filteredLeads = React.useMemo(() => {
-    if (!mobileSearch) return loginUserCallStatus;
+    let filtered = loginUserCallStatus;
     
-    const searchTerm = mobileSearch.toLowerCase();
-    return loginUserCallStatus.filter(lead => {
-      const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
-      return phoneNumber.includes(searchTerm);
-    });
-  }, [loginUserCallStatus, mobileSearch]);
+    // Apply mobile search filter
+    if (mobileSearch) {
+      const searchTerm = mobileSearch.toLowerCase();
+      filtered = filtered.filter(lead => {
+        const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
+        return phoneNumber.includes(searchTerm);
+      });
+    }
+    
+    // Apply product name filter locally
+    if (productName && productName !== 'All') {
+      filtered = filtered.filter(lead => 
+        lead.productname === productName
+      );
+    }
+    
+    return filtered;
+  }, [loginUserCallStatus, mobileSearch, productName]);
 
   const handleEditClick = useCallback((lead) => {
     setEditingLead(lead);
@@ -625,16 +690,19 @@ const Dashboard = () => {
 
       const data = await response.json();
       if (data.success) {
-        setSearchResults(data.data.leads);
-        setLoginUserCallStatus(data.data.leads);
+        const searchLeads = data.data.leads || [];
+        setSearchResults(searchLeads);
+        setLoginUserCallStatus(searchLeads);
         resetPagination();
       } else {
         setError(data.message || 'Search failed');
         setSearchResults([]);
+        setLoginUserCallStatus([]); // Ensure this is set to empty array
       }
     } catch (error) {
       setError('An error occurred while searching');
       setSearchResults([]);
+      setLoginUserCallStatus([]); // Ensure this is set to empty array
     } finally {
       setIsSearching(false);
     }
@@ -713,19 +781,7 @@ const Dashboard = () => {
         <div className="dashboard-header-actions">
           <div className="filters-section">
             <div className="filter-group">
-              <label>Quick Date Range:</label>
-              <select 
-                onChange={(e) => handleDateRangePreset(parseInt(e.target.value))}
-                className="date-preset-select"
-                style={{ marginBottom: '10px' }}
-              >
-                {dateRangePresets.map(preset => (
-                  <option key={preset.value} value={preset.value}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-              
+            
               <label>Custom Date Range:</label>
               <div className="date-range">
                 <DatePicker
@@ -756,7 +812,7 @@ const Dashboard = () => {
                 onChange={handleCallStatusChange}
                 className="status-select"
               >
-                <option value="all">All</option>
+                <option value="All">All</option>
                 {callStatuses?.map((status, index) => (
                   <option key={index} value={status?.name}>
                     {status?.name}
@@ -771,10 +827,10 @@ const Dashboard = () => {
                 onChange={handleProductNameChange}
                 className="status-select"
               >
-                <option value="all">All</option>
-                {productsName?.map((status, index) => (
-                  <option key={index} value={status?.name}>
-                    {status?.name}
+                <option value="All">All</option>
+                {filteredProductsName?.map((product, index) => (
+                  <option key={index} value={product?.name}>
+                    {product?.name}
                   </option>
                 ))}
               </select>
