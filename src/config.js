@@ -2,9 +2,9 @@
 const config = {
     // Development environment
     development: {
-        BASE_URL: 'http://localhost:5000/api',
+        // BASE_URL: 'http://localhost:5000/api',
         // https://lm-server-ladl.onrender.com/
-        // BASE_URL: 'https://lm-server-ladl.onrender.com/api'
+        BASE_URL: 'https://lm-server-ladl.onrender.com/api'
     },
     // Production environment
     production: {
