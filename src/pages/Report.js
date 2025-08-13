@@ -234,10 +234,10 @@ const Report = () => {
               <tbody>
                 {reportData.databaseSummary.callStatusDistribution
                   .filter(status => ![
-                    'Not Qualified',
-                    'Interested But Out Of Budget',
-                    'Booking Done',
-                    'Number Not Answered - 3rd call'
+                    // 'Not Qualified',
+                    // 'Interested But Out Of Budget',
+                    // 'Booking Done',
+                    // 'Number Not Answered - 3rd call'
                   ].includes(status.callstatus))
                   .map((status, index) => (
                     <tr key={index}>

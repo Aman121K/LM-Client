@@ -63,7 +63,7 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [itemsPerPage] = useState(60); // Updated from 20 to 60
+  const [itemsPerPage] = useState(200); // Updated to 200 for better performance
   const [apiResponse, setApiResponse] = useState(null);
 
   // Performance optimization states
@@ -210,10 +210,45 @@ const Dashboard = () => {
   useEffect(() => {
     if (!isInitialLoading) {
       debouncedFetch(() => {
-        fetchLoginUserCallStatus();
+        // If we have search results, apply filters to them instead of fetching new data
+        if (searchResults.length > 0) {
+          // Apply filters to existing search results
+          applyFiltersToSearchResults();
+        } else {
+          // No search results, fetch new data normally
+          fetchLoginUserCallStatus();
+        }
       }, 300); // 300ms debounce for better UX
     }
   }, [startDate, endDate, callStatus, user, currentPage, isInitialLoading]); // Removed productName
+
+  // New function to apply filters to search results
+  const applyFiltersToSearchResults = useCallback(() => {
+    let filtered = searchResults;
+    
+    // Apply date range filter
+    if (startDate && endDate) {
+      filtered = filtered.filter(lead => {
+        const leadDate = new Date(lead.createdAt || lead.PostingDate || lead.submiton);
+        return leadDate >= startDate && leadDate <= endDate;
+      });
+    }
+    
+    // Apply call status filter
+    if (callStatus && callStatus !== 'All') {
+      filtered = filtered.filter(lead => lead.callstatus === callStatus);
+    }
+    
+    // Update the displayed data with filtered search results
+    setLoginUserCallStatus(filtered);
+    
+    // Update pagination
+    const total = filtered.length;
+    const calculatedPages = Math.ceil(total / itemsPerPage);
+    setTotalPages(calculatedPages);
+    setTotalItems(total);
+    setCurrentPage(1); // Reset to first page when filtering
+  }, [searchResults, startDate, endDate, callStatus, itemsPerPage]);
 
   // Handle mobile search separately with longer debounce
   useEffect(() => {
@@ -507,6 +542,30 @@ const Dashboard = () => {
 
   // Optimized filtered leads with useMemo equivalent - updated to include product filtering
   const filteredLeads = React.useMemo(() => {
+    // If we have search results, use them directly
+    if (searchResults.length > 0) {
+      let filtered = searchResults;
+      
+      // Apply mobile search filter to search results
+      if (mobileSearch) {
+        const searchTerm = mobileSearch.toLowerCase();
+        filtered = filtered.filter(lead => {
+          const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
+          return phoneNumber.includes(searchTerm);
+        });
+      }
+      
+      // Apply product name filter to search results
+      if (productName && productName !== 'All') {
+        filtered = filtered.filter(lead => 
+          lead.productname === productName
+        );
+      }
+      
+      return filtered;
+    }
+    
+    // Otherwise, use the regular loginUserCallStatus data
     let filtered = loginUserCallStatus;
     
     // Apply mobile search filter
@@ -526,7 +585,7 @@ const Dashboard = () => {
     }
     
     return filtered;
-  }, [loginUserCallStatus, mobileSearch, productName]);
+  }, [loginUserCallStatus, searchResults, mobileSearch, productName]);
 
   const handleEditClick = useCallback((lead) => {
     setEditingLead(lead);
@@ -676,6 +735,8 @@ const Dashboard = () => {
       setIsSearching(true);
       setError('');
 
+      console.log('Searching with query:', searchQuery);
+
       const response = await fetch(`${BASE_URL}/leads/search`, {
         method: 'POST',
         headers: {
@@ -684,25 +745,40 @@ const Dashboard = () => {
         },
         body: JSON.stringify({
           name: searchQuery.name,
-          contactNumber: searchQuery.contactNumber
+          contactNumber: searchQuery.contactNumber,
+          page: currentPage,
+          limit: itemsPerPage // Add this to request 200 items per page
         })
       });
 
       const data = await response.json();
+      console.log('Search response:', data);
+      
       if (data.success) {
-        const searchLeads = data.data.leads || [];
+        // Fix: The data is directly in data.data, not data.data.leads
+        const searchLeads = data.data || [];
+        console.log('Setting search results:', searchLeads);
         setSearchResults(searchLeads);
         setLoginUserCallStatus(searchLeads);
-        resetPagination();
+        
+        // Also update pagination if the backend provides it
+        if (data.pagination) {
+          setTotalPages(data.pagination.totalPages || 1);
+          setTotalItems(data.pagination.totalItems || 0);
+          setCurrentPage(data.pagination.currentPage || 1);
+        } else {
+          resetPagination();
+        }
       } else {
         setError(data.message || 'Search failed');
         setSearchResults([]);
-        setLoginUserCallStatus([]); // Ensure this is set to empty array
+        setLoginUserCallStatus([]);
       }
     } catch (error) {
+      console.error('Search error:', error);
       setError('An error occurred while searching');
       setSearchResults([]);
-      setLoginUserCallStatus([]); // Ensure this is set to empty array
+      setLoginUserCallStatus([]);
     } finally {
       setIsSearching(false);
     }
@@ -712,8 +788,9 @@ const Dashboard = () => {
     setSearchQuery({ name: '', contactNumber: '' });
     setSearchResults([]);
     resetPagination();
+    // Fetch fresh data after clearing search
     fetchLoginUserCallStatus();
-  }, []);
+  }, [fetchLoginUserCallStatus]);
 
   // Optimized page change handler
   const handlePageChange = useCallback((newPage) => {
