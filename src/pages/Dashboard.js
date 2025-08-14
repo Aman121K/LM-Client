@@ -224,30 +224,51 @@ const Dashboard = () => {
 
   // New function to apply filters to search results
   const applyFiltersToSearchResults = useCallback(() => {
-    let filtered = searchResults;
-    
-    // Apply date range filter
-    if (startDate && endDate) {
-      filtered = filtered.filter(lead => {
-        const leadDate = new Date(lead.createdAt || lead.PostingDate || lead.submiton);
-        return leadDate >= startDate && leadDate <= endDate;
-      });
+    try {
+      if (!searchResults || searchResults.length === 0) {
+        setLoginUserCallStatus([]);
+        setTotalPages(1);
+        setTotalItems(0);
+        setCurrentPage(1);
+        return;
+      }
+
+      let filtered = [...searchResults]; // Create a copy
+      
+      // Apply date range filter
+      if (startDate && endDate) {
+        filtered = filtered.filter(lead => {
+          try {
+            const leadDate = new Date(lead.createdAt || lead.PostingDate || lead.submiton);
+            return leadDate >= startDate && leadDate <= endDate;
+          } catch (error) {
+            console.error('Error parsing date for lead:', lead, error);
+            return true; // Include if date parsing fails
+          }
+        });
+      }
+      
+      // Apply call status filter
+      if (callStatus && callStatus !== 'All') {
+        filtered = filtered.filter(lead => lead.callstatus === callStatus);
+      }
+      
+      // Update the displayed data with filtered search results
+      setLoginUserCallStatus(filtered);
+      
+      // Update pagination
+      const total = filtered.length;
+      const calculatedPages = Math.ceil(total / itemsPerPage);
+      setTotalPages(calculatedPages);
+      setTotalItems(total);
+      setCurrentPage(1); // Reset to first page when filtering
+    } catch (error) {
+      console.error('Error in applyFiltersToSearchResults:', error);
+      setLoginUserCallStatus([]);
+      setTotalPages(1);
+      setTotalItems(0);
+      setCurrentPage(1);
     }
-    
-    // Apply call status filter
-    if (callStatus && callStatus !== 'All') {
-      filtered = filtered.filter(lead => lead.callstatus === callStatus);
-    }
-    
-    // Update the displayed data with filtered search results
-    setLoginUserCallStatus(filtered);
-    
-    // Update pagination
-    const total = filtered.length;
-    const calculatedPages = Math.ceil(total / itemsPerPage);
-    setTotalPages(calculatedPages);
-    setTotalItems(total);
-    setCurrentPage(1); // Reset to first page when filtering
   }, [searchResults, startDate, endDate, callStatus, itemsPerPage]);
 
   // Handle mobile search separately with longer debounce
@@ -542,20 +563,51 @@ const Dashboard = () => {
 
   // Optimized filtered leads with useMemo equivalent - updated to include product filtering
   const filteredLeads = React.useMemo(() => {
-    // If we have search results, use them directly
-    if (searchResults.length > 0) {
-      let filtered = searchResults;
+    try {
+      // If we have search results, use them directly
+      if (searchResults.length > 0) {
+        let filtered = [...searchResults]; // Create a copy to avoid mutations
+        
+        // Apply mobile search filter to search results
+        if (mobileSearch && mobileSearch.trim()) {
+          const searchTerm = mobileSearch.toLowerCase().trim();
+          filtered = filtered.filter(lead => {
+            const phoneNumber = (lead.ContactNumber || '').toLowerCase();
+            const firstName = (lead.FirstName || '').toLowerCase();
+            const lastName = (lead.LastName || '').toLowerCase();
+            return phoneNumber.includes(searchTerm) || 
+                   firstName.includes(searchTerm) || 
+                   lastName.includes(searchTerm);
+          });
+        }
+        
+        // Apply product name filter to search results
+        if (productName && productName !== 'All') {
+          filtered = filtered.filter(lead => 
+            lead.productname === productName
+          );
+        }
+        
+        return filtered;
+      }
       
-      // Apply mobile search filter to search results
-      if (mobileSearch) {
-        const searchTerm = mobileSearch.toLowerCase();
+      // Otherwise, use the regular loginUserCallStatus data
+      let filtered = [...loginUserCallStatus]; // Create a copy to avoid mutations
+      
+      // Apply mobile search filter
+      if (mobileSearch && mobileSearch.trim()) {
+        const searchTerm = mobileSearch.toLowerCase().trim();
         filtered = filtered.filter(lead => {
-          const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
-          return phoneNumber.includes(searchTerm);
+          const phoneNumber = (lead.ContactNumber || '').toLowerCase();
+          const firstName = (lead.FirstName || '').toLowerCase();
+          const lastName = (lead.LastName || '').toLowerCase();
+          return phoneNumber.includes(searchTerm) || 
+                 firstName.includes(searchTerm) || 
+                 lastName.includes(searchTerm);
         });
       }
       
-      // Apply product name filter to search results
+      // Apply product name filter locally
       if (productName && productName !== 'All') {
         filtered = filtered.filter(lead => 
           lead.productname === productName
@@ -563,28 +615,10 @@ const Dashboard = () => {
       }
       
       return filtered;
+    } catch (error) {
+      console.error('Error in filteredLeads:', error);
+      return [];
     }
-    
-    // Otherwise, use the regular loginUserCallStatus data
-    let filtered = loginUserCallStatus;
-    
-    // Apply mobile search filter
-    if (mobileSearch) {
-      const searchTerm = mobileSearch.toLowerCase();
-      filtered = filtered.filter(lead => {
-        const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
-        return phoneNumber.includes(searchTerm);
-      });
-    }
-    
-    // Apply product name filter locally
-    if (productName && productName !== 'All') {
-      filtered = filtered.filter(lead => 
-        lead.productname === productName
-      );
-    }
-    
-    return filtered;
   }, [loginUserCallStatus, searchResults, mobileSearch, productName]);
 
   const handleEditClick = useCallback((lead) => {
@@ -746,39 +780,60 @@ const Dashboard = () => {
         body: JSON.stringify({
           name: searchQuery.name,
           contactNumber: searchQuery.contactNumber,
-          page: currentPage,
-          limit: itemsPerPage // Add this to request 200 items per page
+          page: 1, // Always start from page 1 for search
+          limit: itemsPerPage
         })
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
       console.log('Search response:', data);
       
       if (data.success) {
-        // Fix: The data is directly in data.data, not data.data.leads
-        const searchLeads = data.data || [];
+        // Handle different response structures safely
+        const searchLeads = Array.isArray(data.data) ? data.data : 
+                           (data.data && Array.isArray(data.data.leads)) ? data.data.leads : 
+                           [];
+        
         console.log('Setting search results:', searchLeads);
+        
+        // Update states safely
         setSearchResults(searchLeads);
         setLoginUserCallStatus(searchLeads);
+        setCurrentPage(1); // Reset to first page
         
-        // Also update pagination if the backend provides it
+        // Update pagination safely
         if (data.pagination) {
           setTotalPages(data.pagination.totalPages || 1);
-          setTotalItems(data.pagination.totalItems || 0);
-          setCurrentPage(data.pagination.currentPage || 1);
+          setTotalItems(data.pagination.totalItems || searchLeads.length);
         } else {
-          resetPagination();
+          setTotalPages(Math.ceil(searchLeads.length / itemsPerPage));
+          setTotalItems(searchLeads.length);
         }
+        
+        // Update stats
+        setStats(prev => ({
+          ...prev,
+          totalLeads: searchLeads.length
+        }));
+        
       } else {
         setError(data.message || 'Search failed');
         setSearchResults([]);
         setLoginUserCallStatus([]);
+        setTotalPages(1);
+        setTotalItems(0);
       }
     } catch (error) {
       console.error('Search error:', error);
-      setError('An error occurred while searching');
+      setError('An error occurred while searching. Please try again.');
       setSearchResults([]);
       setLoginUserCallStatus([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setIsSearching(false);
     }
@@ -787,10 +842,15 @@ const Dashboard = () => {
   const handleClearSearch = useCallback(() => {
     setSearchQuery({ name: '', contactNumber: '' });
     setSearchResults([]);
-    resetPagination();
+    setCurrentPage(1);
+    setTotalPages(1);
+    setTotalItems(0);
+    
     // Fetch fresh data after clearing search
-    fetchLoginUserCallStatus();
-  }, [fetchLoginUserCallStatus]);
+    setTimeout(() => {
+      fetchLoginUserCallStatus();
+    }, 100);
+  }, []);
 
   // Optimized page change handler
   const handlePageChange = useCallback((newPage) => {

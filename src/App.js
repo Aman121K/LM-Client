@@ -16,6 +16,7 @@ import TLDashboard from './pages/TLDashboard';
 import ResaleLeads from './pages/ResaleLeads';
 import UserLeads from './pages/user-leads';
 import AdminDayWise from './pages/AdminDayWise';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Create a separate component for routes that uses useAuth
 const AppRoutes = () => {
@@ -115,11 +116,13 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

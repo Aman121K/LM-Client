@@ -133,16 +133,36 @@ const TLDashboard = () => {
     React.startTransition(updates);
   }, [itemsPerPage]);
 
-  // Move useMemo to top level - this fixes the Rules of Hooks violation
+  // Fix the filteredLeads logic to include search results
   const filteredLeads = React.useMemo(() => {
-    if (!mobileSearch) return loginUserCallStatus;
+    // If we have search results, use them as the base data
+    let baseData = searchResults.length > 0 ? searchResults : loginUserCallStatus;
     
-    const searchTerm = mobileSearch.toLowerCase();
-    return loginUserCallStatus.filter(lead => {
-      const phoneNumber = lead.ContactNumber?.toLowerCase() || '';
-      return phoneNumber.includes(searchTerm);
-    });
-  }, [loginUserCallStatus, mobileSearch]);
+    // Apply mobile search filter
+    if (mobileSearch && mobileSearch.trim()) {
+      const searchTerm = mobileSearch.toLowerCase().trim();
+      baseData = baseData.filter(lead => {
+        const phoneNumber = (lead.ContactNumber || '').toLowerCase();
+        const firstName = (lead.FirstName || '').toLowerCase();
+        const lastName = (lead.LastName || '').toLowerCase();
+        return phoneNumber.includes(searchTerm) || 
+               firstName.includes(searchTerm) || 
+               lastName.includes(searchTerm);
+      });
+    }
+    
+    // Apply call status filter
+    if (callStatus && callStatus !== 'All') {
+      baseData = baseData.filter(lead => lead.callstatus === callStatus);
+    }
+    
+    // Apply product name filter
+    if (productName && productName !== 'All') {
+      baseData = baseData.filter(lead => lead.productname === productName);
+    }
+    
+    return baseData;
+  }, [loginUserCallStatus, searchResults, mobileSearch, callStatus, productName]);
 
   // Static data - only fetch once on component mount with caching
   useEffect(() => {
@@ -448,6 +468,7 @@ const TLDashboard = () => {
     }));
   }, []);
 
+  // Fix the handleSearch function to properly handle the response
   const handleSearch = async () => {
     if (!searchQuery.name && !searchQuery.contactNumber) {
       setError('Please enter either name or contact number to search');
@@ -458,6 +479,8 @@ const TLDashboard = () => {
       setIsSearching(true);
       setError('');
 
+      console.log('Searching with query:', searchQuery);
+
       const response = await fetch(`${BASE_URL}/leads/search`, {
         method: 'POST',
         headers: {
@@ -466,30 +489,78 @@ const TLDashboard = () => {
         },
         body: JSON.stringify({
           name: searchQuery.name,
-          contactNumber: searchQuery.contactNumber
+          contactNumber: searchQuery.contactNumber,
+          page: 1, // Always start from page 1 for search
+          limit: itemsPerPage
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
+      console.log('Search response:', data);
+      
       if (data.success) {
-        setSearchResults(data.data.leads);
-        setLoginUserCallStatus(data.data.leads);
+        // Handle different response structures safely
+        const searchLeads = Array.isArray(data.data) ? data.data : 
+                           (data.data && Array.isArray(data.data.leads)) ? data.data.leads : 
+                           [];
+        
+        console.log('Setting search results:', searchLeads);
+        
+        // Update states safely
+        setSearchResults(searchLeads);
+        setLoginUserCallStatus(searchLeads);
+        setCurrentPage(1); // Reset to first page
+        
+        // Update pagination safely
+        if (data.pagination) {
+          setTotalPages(data.pagination.totalPages || 1);
+          setTotalItems(data.pagination.totalItems || searchLeads.length);
+        } else {
+          setTotalPages(Math.ceil(searchLeads.length / itemsPerPage));
+          setTotalItems(searchLeads.length);
+        }
+        
+        // Update stats
+        setStats(prev => ({
+          ...prev,
+          totalLeads: searchLeads.length
+        }));
+        
       } else {
         setError(data.message || 'Search failed');
         setSearchResults([]);
+        setLoginUserCallStatus([]);
+        setTotalPages(1);
+        setTotalItems(0);
       }
     } catch (error) {
-      setError('An error occurred while searching');
+      console.error('Search error:', error);
+      setError('An error occurred while searching. Please try again.');
       setSearchResults([]);
+      setLoginUserCallStatus([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setIsSearching(false);
     }
   };
 
+  // Fix the handleClearSearch function
   const handleClearSearch = useCallback(() => {
     setSearchQuery({ name: '', contactNumber: '' });
     setSearchResults([]);
-    fetchTLUserCallStatus();
+    setCurrentPage(1);
+    setTotalPages(1);
+    setTotalItems(0);
+    
+    // Fetch fresh data after clearing search
+    setTimeout(() => {
+      fetchTLUserCallStatus();
+    }, 100);
   }, []);
 
   const handleCallClick = useCallback((phoneNumber) => {
