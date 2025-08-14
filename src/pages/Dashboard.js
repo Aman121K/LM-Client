@@ -1052,7 +1052,7 @@ const Dashboard = () => {
             <>
               <div className="lead-count-badge">
                 <span className="lead-count-label">Leads Found</span>
-                <span className="lead-count-number">{filteredLeads.length}</span>
+                <span className="lead-count-number">{totalItems}</span>
               </div>
               <div className="table-container">
                 <table>
