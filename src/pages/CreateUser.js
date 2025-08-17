@@ -113,12 +113,12 @@ const CreateUser = () => {
       <div className="create-user-box">
         <div className="header-actions">
           <h1>Create New User</h1>
-          <button 
+          {/* <button 
             onClick={toggleAllUsers} 
             className="all-users-btn"
           >
             {showAllUsers ? 'Hide All Users' : 'Show All Users'}
-          </button>
+          </button> */}
         </div>
         {error && <div className="error-message">{error}</div>}
         

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { UserManagementProvider } from './context/UserManagementContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -17,6 +18,7 @@ import ResaleLeads from './pages/ResaleLeads';
 import UserLeads from './pages/user-leads';
 import AdminDayWise from './pages/AdminDayWise';
 import ErrorBoundary from './components/ErrorBoundary';
+import CallStatusStatistics from './pages/CallStatusStatistics';
 
 // Create a separate component for routes that uses useAuth
 const AppRoutes = () => {
@@ -109,6 +111,7 @@ const AppRoutes = () => {
       <Route path="/resale-leads" element={<ResaleLeads />} />
       <Route path="/report" element={<Report />} />
       <Route path="/add-lead" element={<AddLead />} />
+      <Route path="/call-status-statistics" element={<CallStatusStatistics />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
@@ -118,9 +121,11 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
+        <UserManagementProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </UserManagementProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

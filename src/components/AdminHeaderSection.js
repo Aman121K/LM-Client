@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './AdminHeaderSection.css';
 import goRealtorsLogo from './goRealtors.jpg';
 const AdminHeaderSection = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -14,6 +15,10 @@ const AdminHeaderSection = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
+  };
+
+  const isActive = (path) => {
+    return location.pathname === path;
   };
 
   return (
@@ -41,7 +46,8 @@ const AdminHeaderSection = () => {
           <button onClick={() => navigate('/all-users')}>View Users</button>
           <button onClick={() => navigate('/operator-report')}>Reports</button>
           <button onClick={() => navigate('/upload')}>Upload Data</button>
-          {/* <button onClick={() => navigate('/export')}>Export Data</button> */}
+          <button onClick={() => navigate('/call-status-statistics')}>Call Status Statistics</button>
+          {/* <button onClick={() => navigate('/export')}>Export Dat  a</button> */}
           <button onClick={handleLogout}>Logout</button>
         </div>
       </div>
