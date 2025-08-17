@@ -1,135 +1,393 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { leadAPI } from '../services/apiService';
 import UserHeaderSection from '../components/UserHeaderSection';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Table from '../components/common/Table';
+import Modal from '../components/common/Modal';
+import LoadingSkeleton from '../components/LoadingSkeleton';
+import Pagination from '../components/Pagination';
 import './ResaleLeads.css';
-import { BASE_URL } from '../config';
 
 const ResaleLeads = () => {
-  const navigate = useNavigate();
-  const [resaleLeads, setResaleLeads] = useState([]);
+  const { user } = useAuth();
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredLeads, setFilteredLeads] = useState([]);
+  const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all',
+    assignedTo: 'all',
+    dateRange: 'all'
+  });
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [updatingLead, setUpdatingLead] = useState(null);
 
   useEffect(() => {
-    console.log('Component mounted, fetching leads...');
     fetchResaleLeads();
-  }, []);
-
-  // Filter leads when search term or resaleLeads change
-  useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredLeads(resaleLeads);
-    } else {
-      const filtered = resaleLeads.filter(lead => {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          (lead.FirstName && lead.FirstName.toLowerCase().includes(searchLower)) ||
-          (lead.LastName && lead.LastName.toLowerCase().includes(searchLower)) ||
-          (lead.ContactNumber && lead.ContactNumber.includes(searchTerm)) ||
-          (lead.EmailId && lead.EmailId.toLowerCase().includes(searchLower)) ||
-          (lead.remarks && lead.remarks.toLowerCase().includes(searchLower))
-        );
-      });
-      setFilteredLeads(filtered);
-    }
-  }, [searchTerm, resaleLeads]);
+  }, [currentPage, filters]);
 
   const fetchResaleLeads = async () => {
     try {
-      console.log('Starting API call...');
       setLoading(true);
-      const response = await fetch(`${BASE_URL}/leads/resale-seller`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await leadAPI.getAllLeads({
+        page: currentPage,
+        limit: itemsPerPage,
+        type: 'resale',
+        ...filters
       });
-      const data = await response.json();
-      console.log('Received data:', data?.data);
       
-      // Check if data.data exists, otherwise use data directly
-      const leadsData = data?.data || data || [];
-      setResaleLeads(leadsData);
-      setFilteredLeads(leadsData);
+      setLeads(response.data.leads);
+      setTotalPages(Math.ceil(response.data.total / itemsPerPage));
     } catch (error) {
+      setError('Failed to fetch resale leads');
       console.error('Error fetching resale leads:', error);
-      setError('Failed to load resale leads. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRefresh = () => {
-    console.log('Manual refresh triggered');
-    fetchResaleLeads();
+  const handleFilterChange = (name, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setCurrentPage(1);
   };
 
-  return (
-    <div className="resale-leads-page">
-      <UserHeaderSection />
+  const handleViewLead = (lead) => {
+    setSelectedLead(lead);
+    setShowLeadModal(true);
+  };
 
-      <div className="resale-leads-container">
-        <div className="resale-leads-header">
-          <h1>Resale Seller Leads</h1>
-          <div className="resale-leads-actions">
-            <input
-              type="text"
-              placeholder="Search leads..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-            <button onClick={handleRefresh} className="refresh-button">
-              Refresh
-            </button>
+  const handleUpdateLead = async (leadId, updateData) => {
+    try {
+      setUpdatingLead(leadId);
+      await leadAPI.updateLead(leadId, updateData);
+      
+      // Update the lead in the local state
+      setLeads(prev => prev.map(lead => 
+        lead.id === leadId ? { ...lead, ...updateData } : lead
+      ));
+      
+      setShowLeadModal(false);
+      setSelectedLead(null);
+    } catch (error) {
+      setError('Failed to update lead');
+      console.error('Error updating lead:', error);
+    } finally {
+      setUpdatingLead(null);
+    }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const tableColumns = [
+    {
+      key: 'name',
+      label: 'Lead Name',
+      render: (_, lead) => (
+        <div className="lead-name">
+          <div className="lead-avatar">
+            {lead.FirstName?.charAt(0)?.toUpperCase() || 'L'}
+          </div>
+          <div className="lead-info">
+            <div className="lead-full-name">
+              {lead.FirstName} {lead.LastName}
+            </div>
+            <div className="lead-id">ID: {lead.id}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'contact',
+      label: 'Contact Information',
+      render: (_, lead) => (
+        <div className="lead-contact">
+          <div className="contact-email">
+            <a href={`mailto:${lead.EmailId}`}>{lead.EmailId}</a>
+          </div>
+          <div className="contact-phone">
+            <a href={`tel:${lead.ContactNumber}`}>{lead.ContactNumber}</a>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'property',
+      label: 'Property Details',
+      render: (_, lead) => (
+        <div className="property-details">
+          <div className="property-type">{lead.productname || 'N/A'}</div>
+          <div className="property-unit">{lead.unittype || 'N/A'}</div>
+          <div className="property-budget">
+            Budget: ₹{lead.budget ? lead.budget.toLocaleString() : 'N/A'}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (_, lead) => (
+        <span className={`status-badge status-${lead.callstatus}`}>
+          {lead.callstatus || 'New'}
+        </span>
+      )
+    },
+    {
+      key: 'assignedTo',
+      label: 'Assigned To',
+      render: (_, lead) => lead.assignedTo || 'Unassigned'
+    },
+    {
+      key: 'createdAt',
+      label: 'Created Date',
+      render: (_, lead) => new Date(lead.createdAt).toLocaleDateString()
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_, lead) => (
+        <div className="action-buttons">
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => handleViewLead(lead)}
+          >
+            View
+          </Button>
+          <Button
+            variant="primary"
+            size="small"
+            onClick={() => handleViewLead(lead)}
+          >
+            Update
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  const filteredLeads = useMemo(() => {
+    let filtered = [...leads];
+
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(lead =>
+        lead.FirstName?.toLowerCase().includes(searchLower) ||
+        lead.LastName?.toLowerCase().includes(searchLower) ||
+        lead.EmailId?.toLowerCase().includes(searchLower) ||
+        lead.ContactNumber?.includes(filters.search)
+      );
+    }
+
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(lead => lead.callstatus === filters.status);
+    }
+
+    return filtered;
+  }, [leads, filters]);
+
+  return (
+    <div className="resale-leads-container">
+      <UserHeaderSection />
+      
+      <div className="resale-leads-content">
+        <div className="page-header">
+          <div className="page-title">
+            <h1>Resale Leads</h1>
+            <p>Manage and track resale property leads</p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => window.location.href = '/add-lead'}
+          >
+            Add New Lead
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <div className="filters-section">
+          <div className="filters-grid">
+            <div className="filter-group">
+              <Input
+                placeholder="Search leads..."
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                icon="🔍"
+              />
+            </div>
+            <div className="filter-group">
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Statuses</option>
+                <option value="new">New</option>
+                <option value="follow-up">Follow Up</option>
+                <option value="interested">Interested</option>
+                <option value="not-interested">Not Interested</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <select
+                value={filters.assignedTo}
+                onChange={(e) => handleFilterChange('assignedTo', e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Users</option>
+                <option value="me">Assigned to Me</option>
+                <option value="unassigned">Unassigned</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <select
+                value={filters.dateRange}
+                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="quarter">This Quarter</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {loading ? (
-          <div className="loading-container">
-            <div className="loading-spinner"></div>
-            <p>Loading leads...</p>
-          </div>
-        ) : error ? (
-          <div className="error-container">
-            <p>{error}</p>
-            <button onClick={handleRefresh} className="retry-button">
-              Retry
-            </button>
-          </div>
-        ) : (
-          <div className="leads-grid">
-            {filteredLeads.length > 0 ? (
-              filteredLeads.map((lead, index) => (
-                <div key={lead.id || index} className="lead-card">
-                  <div className="lead-header">
-                    <h3>{`${lead.FirstName || ''} ${lead.LastName || ''}`.trim() || 'N/A'}</h3>
-                    <span className={`status-badge ${lead.callstatus?.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {lead.callstatus || 'Pending'}
-                    </span>
-                  </div>
-                  <div className="lead-details">
-                    {/* <p><strong>Phone:</strong> {lead.ContactNumber || 'N/A'}</p> */}
-                    <p><strong>Email:</strong> {lead.EmailId || 'N/A'}</p>
-                    <p><strong>Unit Type:</strong> {lead.unittype || 'N/A'}</p>
-                    <p><strong>Budget:</strong> {lead.budget || 'N/A'}</p>
-                    <p><strong>Product:</strong> {lead.productname || 'N/A'}</p>
-                    <p><strong>Remarks:</strong> {lead.remarks || 'N/A'}</p>
-                    <p><strong>Assigned TL:</strong> {lead.assign_tl || 'Not Assigned'}</p>
-                    <p><strong>Call By:</strong> {lead.callby || 'Not Assigned'}</p>
-                    <p><strong>Created:</strong> {new Date(lead.createdAt).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="no-leads">
-                <p>No resale leads found</p>
-              </div>
-            )}
+        {error && (
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            {error}
           </div>
         )}
+
+        {loading ? (
+          <LoadingSkeleton type="table" rows={10} />
+        ) : (
+          <>
+            <Table
+              columns={tableColumns}
+              data={filteredLeads}
+              emptyMessage="No resale leads found"
+            />
+
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                totalItems={filteredLeads.length}
+                itemsPerPage={itemsPerPage}
+              />
+            )}
+          </>
+        )}
       </div>
+
+      <Modal
+        isOpen={showLeadModal}
+        onClose={() => setShowLeadModal(false)}
+        title={selectedLead ? `View/Update Lead: ${selectedLead.FirstName} ${selectedLead.LastName}` : 'Lead Details'}
+        size="large"
+      >
+        {selectedLead ? (
+          <div className="lead-details-modal">
+            <h2>Lead Details</h2>
+            <div className="detail-row">
+              <strong>Name:</strong> {selectedLead.FirstName} {selectedLead.LastName}
+            </div>
+            <div className="detail-row">
+              <strong>Contact:</strong> {selectedLead.EmailId || selectedLead.ContactNumber}
+            </div>
+            <div className="detail-row">
+              <strong>Product:</strong> {selectedLead.productname || 'N/A'}
+            </div>
+            <div className="detail-row">
+              <strong>Unit Type:</strong> {selectedLead.unittype || 'N/A'}
+            </div>
+            <div className="detail-row">
+              <strong>Budget:</strong> ₹{selectedLead.budget || 'N/A'}
+            </div>
+            <div className="detail-row">
+              <strong>Remarks:</strong> {selectedLead.remarks || 'N/A'}
+            </div>
+            <div className="detail-row">
+              <strong>Status:</strong> <span className={`status-badge status-${selectedLead.callstatus}`}>{selectedLead.callstatus || 'New'}</span>
+            </div>
+            <div className="detail-row">
+              <strong>Assigned To:</strong> {selectedLead.assignedTo || 'Unassigned'}
+            </div>
+            <div className="detail-row">
+              <strong>Created At:</strong> {new Date(selectedLead.createdAt).toLocaleDateString()}
+            </div>
+            <div className="detail-row">
+              <strong>Last Follow Up:</strong> {selectedLead.followup ? new Date(selectedLead.followup).toLocaleDateString() : 'N/A'}
+            </div>
+
+            <h3>Update Lead</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const updateData = {
+                callstatus: 'interested', // Example update
+                remarks: 'Updated remarks',
+                followup: new Date().toISOString()
+              };
+              handleUpdateLead(selectedLead.id, updateData);
+            }}>
+              <div className="form-row">
+                <Input
+                  label="New Status"
+                  name="newStatus"
+                  value="interested"
+                  onChange={(e) => {}}
+                  required
+                />
+                <Input
+                  label="New Remarks"
+                  name="newRemarks"
+                  value="Updated remarks"
+                  onChange={(e) => {}}
+                  required
+                />
+              </div>
+              <div className="form-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowLeadModal(false)}
+                  disabled={updatingLead === selectedLead?.id}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={updatingLead === selectedLead?.id}
+                >
+                  Update Lead
+                </Button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="no-lead-selected">
+            <p>No lead selected for viewing/updating.</p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

@@ -1,155 +1,127 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { BASE_URL } from '../config';
+import { userAPI } from '../services/apiService';
 import AdminHeaderSection from '../components/AdminHeaderSection';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Modal from '../components/common/Modal';
 import './EditUser.css';
 
 const EditUser = () => {
-  const { userId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [userData, setUserData] = useState({
-    FullName: '',
-    Username: '',
-    UserEmail: '',
-    usertype: '',
-    loginstatus: 1,
-    tl_name: ''
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    username: '',
+    phone: '',
+    role: 'user',
+    status: 1
   });
-  const [teamLeads, setTeamLeads] = useState([]);
-  const [usersUnderTL, setUsersUnderTL] = useState([]);
 
   useEffect(() => {
-    fetchUserData();
-    fetchTeamLeads();
-  }, [userId]);
+    fetchUser();
+  }, [id]);
 
-  useEffect(() => {
-    if (userData.usertype === 'tl') {
-      // fetchUsersUnderTL();
-    }
-  }, [userData.usertype]);
-
-  const fetchUserData = async () => {
+  const fetchUser = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      console.log("API Response:", data); // Debug log
+      setLoading(true);
+      const response = await userAPI.getUserById(id);
+      const userData = response.data.user;
       
-      if (data.success) {
-        // Normalize the usertype to match the select options
-        const normalizedUserType = data.data.usertype?.toLowerCase() || '';
-        const userData = {
-          ...data.data,
-          usertype: normalizedUserType,
-          tl_name: data.data.tl_name || ''
-        };
-        console.log("Normalized user data:", userData);
-        setUserData(userData);
-      } else {
-        setError(data.message || 'Failed to fetch user data');
-      }
+      setUser(userData);
+      setFormData({
+        firstName: userData.firstName || userData.FullName?.split(' ')[0] || '',
+        lastName: userData.lastName || userData.FullName?.split(' ').slice(1).join(' ') || '',
+        email: userData.email || userData.UserEmail || '',
+        username: userData.username || userData.Username || '',
+        phone: userData.phone || userData.Phone || '',
+        role: userData.role || userData.usertype || 'user',
+        status: userData.status !== undefined ? userData.status : (userData.loginstatus || 1)
+      });
     } catch (error) {
-      setError('An error occurred while fetching user data');
+      setError('Failed to fetch user details');
+      console.error('Error fetching user:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchTeamLeads = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/users/tl`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      console.log("Team Leads Response:", data); // Debug log
-      
-      if (data.success) {
-        // Filter out the current user from team leads list
-        const filteredTLs = data.data.filter(tl => tl.id !== parseInt(userId));
-        console.log("Filtered Team Leads:", filteredTLs); // Debug log
-        setTeamLeads(filteredTLs);
-      }
-    } catch (error) {
-      console.error('Error fetching team leads:', error);
-    }
-  };
-
-  const fetchUsersUnderTL = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/users/under-tl/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setUsersUnderTL(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching users under TL:', error);
-    }
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setUserData(prev => ({
+    setFormData(prev => ({
       ...prev,
-      [name]: value,
-      // Clear TL assignment if role is changed to admin or TL
-      ...(name === 'usertype' && value !== 'user' && { tl_name: '' })
+      [name]: value
     }));
+  };
+
+  const validateForm = () => {
+    if (!formData.firstName.trim()) {
+      setError('First name is required');
+      return false;
+    }
+    if (!formData.lastName.trim()) {
+      setError('Last name is required');
+      return false;
+    }
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+    if (!formData.username.trim()) {
+      setError('Username is required');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    // Validate TL assignment
-    if (userData.usertype === 'user' && !userData.tl_name) {
-      setError('Please select a Team Lead for the user');
-      return;
-    }
+    
+    if (!validateForm()) return;
 
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(userData)
+      setSaving(true);
+      setError('');
+      
+      await userAPI.updateUser(id, {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        username: formData.username,
+        phone: formData.phone,
+        role: formData.role,
+        status: formData.status
       });
-
-      const data = await response.json();
-      if (data.success) {
-        setSuccess('User updated successfully');
-        setTimeout(() => {
-          navigate('/all-users');
-        }, 2000);
-      } else {
-        setError(data.message || 'Failed to update user');
-      }
+      
+      setShowSuccessModal(true);
     } catch (error) {
-      setError('An error occurred while updating user');
+      setError('Failed to update user. Please try again.');
+      console.error('Error updating user:', error);
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    navigate('/users');
   };
 
   if (loading) {
     return (
       <div className="edit-user-container">
         <AdminHeaderSection />
-        <div className="edit-user-content">
-          <div className="loading">Loading user data...</div>
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading user details...</p>
         </div>
       </div>
     );
@@ -158,122 +130,147 @@ const EditUser = () => {
   return (
     <div className="edit-user-container">
       <AdminHeaderSection />
+      
       <div className="edit-user-content">
-        <h2>Edit User</h2>
-        
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-
-        <form onSubmit={handleSubmit} className="edit-user-form">
-          <div className="form-group">
-            <label>Full Name</label>
-            <input
-              type="text"
-              name="FullName"
-              value={userData.FullName}
-              onChange={handleInputChange}
-              disabled
-            />
+        <div className="page-header">
+          <div className="page-title">
+            <h1>Edit User</h1>
+            <p>Update user information and permissions</p>
           </div>
+          <Button
+            variant="secondary"
+            onClick={() => navigate('/users')}
+          >
+            Back to Users
+          </Button>
+        </div>
 
-          <div className="form-group">
-            <label>Username</label>
-            <input
-              type="text"
-              name="Username"
-              value={userData.Username}
-              onChange={handleInputChange}
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              name="UserEmail"
-              value={userData.UserEmail}
-              onChange={handleInputChange}
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>User Role</label>
-            <select
-              name="usertype"
-              value={userData.usertype}
-              onChange={handleInputChange}
-              required
-            >
-              <option value="">Select Role</option>
-              <option value="admin">Admin</option>
-              <option value="tl">Team Lead</option>
-              <option value="user">User</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Team Lead</label>
-            <select
-              name="tl_name"
-              value={userData.tl_name}
-              onChange={handleInputChange}
-              required
-            >
-              <option value="">Select Team Lead</option>
-              {teamLeads.map(tl => (
-                <option key={tl.id} value={tl.Username}>
-                  {tl.FullName} ({tl.Username})
-                </option>
-              ))}
-            </select>
-            <div className="debug-info" style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-              Current TL: {userData.tl_name}
-            </div>
-          </div>
-
-          {userData.usertype === 'tl' && usersUnderTL.length > 0 && (
-            <div className="form-group">
-              <label>Users Under This Team Lead</label>
-              <div className="users-under-tl">
-                {usersUnderTL.map(user => (
-                  <div key={user.id} className="user-item">
-                    <span>{user.FullName}</span>
-                    <span className="user-email">({user.UserEmail})</span>
-                  </div>
-                ))}
+        <div className="edit-user-form-container">
+          <form onSubmit={handleSubmit} className="edit-user-form">
+            <div className="form-section">
+              <h3>Personal Information</h3>
+              <div className="form-row">
+                <Input
+                  label="First Name"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  required
+                />
+                <Input
+                  label="Last Name"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-row">
+                <Input
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                />
+                <Input
+                  label="Phone Number"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                />
               </div>
             </div>
-          )}
 
-          <div className="form-group">
-            <label>Login Status</label>
-            <select
-              name="loginstatus"
-              value={userData.loginstatus}
-              onChange={handleInputChange}
-              required
-            >
-              <option value={1}>Active</option>
-              <option value={0}>Inactive</option>
-            </select>
-          </div>
+            <div className="form-section">
+              <h3>Account Information</h3>
+              <div className="form-row">
+                <Input
+                  label="Username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  required
+                />
+                <div className="form-group">
+                  <label className="input-label input-required">Role</label>
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className="filter-select"
+                  >
+                    <option value="user">User</option>
+                    <option value="tl">Team Lead</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="input-label">Status</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="filter-select"
+                  >
+                    <option value={1}>Active</option>
+                    <option value={0}>Inactive</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-          <div className="form-actions">
-            <button type="submit" className="save-btn">
-              Save Changes
-            </button>
-            <button
-              type="button"
-              className="cancel-btn"
-              onClick={() => navigate('/all-users')}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+            {error && (
+              <div className="error-message">
+                <span className="error-icon">⚠️</span>
+                {error}
+              </div>
+            )}
+
+            <div className="form-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => navigate('/users')}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={saving}
+              >
+                Update User
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
+
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={handleSuccessClose}
+        title="User Updated Successfully"
+        size="small"
+      >
+        <div className="success-message">
+          <p>The user has been updated successfully.</p>
+        </div>
+        <div className="modal-footer">
+          <Button
+            variant="primary"
+            onClick={handleSuccessClose}
+          >
+            Continue
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

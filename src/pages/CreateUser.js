@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '../config';
 import './CreateUser.css';
 import AdminHeaderSection from '../components/AdminHeaderSection';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Modal from '../components/common/Modal';
+import { userAPI } from '../services/apiService';
+
 const CreateUser = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -19,6 +24,8 @@ const CreateUser = () => {
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     fetchTlUsers();
@@ -68,8 +75,68 @@ const CreateUser = () => {
     }));
   };
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full Name is required';
+    }
+
+    if (!formData.username.trim()) {
+      newErrors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (!formData.userRole) {
+      newErrors.userRole = 'User Role is required';
+    }
+
+    if (formData.userRole === 'user' && !formData.tlUsername) {
+      newErrors.tlUsername = 'Team Lead is required for User role';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) return;
+
     setError('');
     setLoading(true);
 
@@ -95,6 +162,11 @@ const CreateUser = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    navigate('/admin/users');
   };
 
   const toggleAllUsers = () => {
@@ -166,45 +238,49 @@ const CreateUser = () => {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="fullName">Full Name</label>
-              <input
+              <Input
                 type="text"
                 id="fullName"
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleChange}
+                error={errors.fullName}
                 required
               />
             </div>
             <div className="form-group">
               <label htmlFor="username">Username</label>
-              <input
+              <Input
                 type="text"
                 id="username"
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
+                error={errors.username}
                 required
               />
             </div>
             <div className="form-group">
               <label htmlFor="email">Email</label>
-              <input
+              <Input
                 type="email"
                 id="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                error={errors.email}
                 required
               />
             </div>
             <div className="form-group">
               <label htmlFor="password">Password</label>
-              <input
+              <Input
                 type="password"
                 id="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
+                error={errors.password}
                 required
               />
             </div>
@@ -215,6 +291,7 @@ const CreateUser = () => {
                 name="userRole"
                 value={formData.userRole}
                 onChange={handleChange}
+                error={errors.userRole}
                 required
               >
                 <option value="user">User</option>
@@ -229,6 +306,7 @@ const CreateUser = () => {
                   name="tlUsername"
                   value={formData.tlUsername}
                   onChange={handleChange}
+                  error={errors.tlUsername}
                   required
                 >
                   <option value="">Select Team Lead</option>
@@ -241,16 +319,44 @@ const CreateUser = () => {
               </div>
             )}
             <div className="form-buttons">
-              <button type="submit" disabled={loading}>
-                {loading ? 'Creating...' : 'Create User'}
-              </button>
-              <button type="button" onClick={() => navigate('/admin')} className="cancel-button">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => navigate('/admin/users')}
+                disabled={loading}
+              >
                 Cancel
-              </button>
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={loading}
+              >
+                Create User
+              </Button>
             </div>
           </form>
         )}
       </div>
+
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={handleSuccessClose}
+        title="User Created Successfully"
+        size="small"
+      >
+        <div className="success-message">
+          <p>The user has been created successfully and can now log in to the system.</p>
+        </div>
+        <div className="modal-footer">
+          <Button
+            variant="primary"
+            onClick={handleSuccessClose}
+          >
+            Continue
+          </Button>
+        </div>
+      </Modal>
     </div>
     </>
   );

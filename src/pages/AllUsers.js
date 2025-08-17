@@ -1,21 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { BASE_URL } from '../config';
-import AdminHeaderSection from '../components/AdminHeaderSection';
-import './AllUsers.css';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { userAPI } from '../services/apiService';
+import AdminHeaderSection from '../components/AdminHeaderSection';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Table from '../components/common/Table';
+import Modal from '../components/common/Modal';
+import LoadingSkeleton from '../components/LoadingSkeleton';
 import Pagination from '../components/Pagination';
+import './AllUsers.css';
 
 const AllUsers = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
-  
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(20);
+  const [deletingUser, setDeletingUser] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   // Column filter states
   const [columnFilters, setColumnFilters] = useState({
@@ -27,65 +34,51 @@ const AllUsers = () => {
     loginstatus: null
   });
 
-  const navigate = useNavigate();
-
   useEffect(() => {
     fetchUsers();
   }, [currentPage]);
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/users/allUserList?page=${currentPage}&limit=${itemsPerPage}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      setLoading(true);
+      const response = await userAPI.getAllUsers({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm,
+        role: selectedRole !== 'all' ? selectedRole : undefined
       });
-      const data = await response.json();
-      if (data.success) {
-        setUsers(data.data);
-        setTotalPages(Math.ceil(data.total / itemsPerPage));
-      } else {
-        setError(data.message || 'Failed to fetch users');
-      }
+      
+      setUsers(response.data.users);
+      setTotalPages(Math.ceil(response.data.total / itemsPerPage));
     } catch (error) {
-      setError('An error occurred while fetching users');
+      setError('Failed to fetch users. Please try again.');
+      console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (userId) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        const response = await fetch(`${BASE_URL}/users/${userId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        const data = await response.json();
-        if (data.success) {
-          fetchUsers();
-        } else {
-          setError(data.message || 'Failed to delete user');
-        }
-      } catch (error) {
-        setError('An error occurred while deleting the user');
-      }
+    setUserToDelete(userId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      setDeletingUser(userToDelete);
+      await userAPI.deleteUser(userToDelete);
+      
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error) {
+      setError('Failed to delete user. Please try again.');
+      console.error('Error deleting user:', error);
+    } finally {
+      setDeletingUser(null);
     }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const getStatusBadge = (loginStatus) => {
-    return loginStatus === 1 ? 'active' : 'inactive';
   };
 
   const handleColumnFilter = (column) => {
@@ -99,83 +92,134 @@ const AllUsers = () => {
           else if (currentFilter === 1) newFilter = 0;
           else newFilter = null;
           break;
-        case 'usertype':
-          if (currentFilter === null) newFilter = 'admin';
-          else if (currentFilter === 'admin') newFilter = 'tl';
-          else if (currentFilter === 'tl') newFilter = 'user';
+        default:
+          if (currentFilter === null) newFilter = 'asc';
+          else if (currentFilter === 'asc') newFilter = 'desc';
           else newFilter = null;
-          break;
-        default:
-          newFilter = currentFilter === 'asc' ? 'desc' : 'asc';
       }
 
-      return {
-        ...prev,
-        [column]: newFilter
-      };
+      return { ...prev, [column]: newFilter };
     });
   };
 
-  const getFilterIcon = (column) => {
-    const filter = columnFilters[column];
-    if (filter === null) return '↕️';
-    if (column === 'loginstatus') {
-      return filter === 1 ? '🟢' : '🔴';
+  const filteredUsers = useMemo(() => {
+    let filtered = [...users];
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user =>
+        user.FullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.Username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.UserEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-    if (column === 'usertype') {
-      return filter === 'admin' ? '👑' : filter === 'tl' ? '👥' : '👤';
+
+    // Apply role filter
+    if (selectedRole !== 'all') {
+      filtered = filtered.filter(user => user.usertype === selectedRole);
     }
-    return filter === 'asc' ? '↑' : '↓';
+
+    return filtered;
+  }, [users, searchTerm, selectedRole]);
+
+  const tableColumns = [
+    {
+      key: 'FullName',
+      label: 'Full Name',
+      sortable: true,
+      render: (value, user) => (
+        <div className="user-name">
+          <div className="user-avatar">
+            {user.FullName?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <div className="user-info">
+            <div className="user-full-name">{value}</div>
+            <div className="user-username">@{user.Username}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'UserEmail',
+      label: 'Email',
+      sortable: true,
+      render: (value) => (
+        <a href={`mailto:${value}`} className="user-email">
+          {value}
+        </a>
+      )
+    },
+    {
+      key: 'usertype',
+      label: 'Role',
+      sortable: true,
+      render: (value) => (
+        <span className={`role-badge role-${value}`}>
+          {value === 'admin' ? 'Admin' : 
+           value === 'tl' ? 'Team Lead' : 'User'}
+        </span>
+      )
+    },
+    {
+      key: 'tl_name',
+      label: 'Team Lead',
+      sortable: true,
+      render: (value) => value || '-'
+    },
+    {
+      key: 'loginstatus',
+      label: 'Status',
+      sortable: true,
+      render: (value) => (
+        <span className={`status-badge status-${value === 1 ? 'active' : 'inactive'}`}>
+          {value === 1 ? 'Active' : 'Inactive'}
+        </span>
+      )
+    },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      sortable: true,
+      render: (value) => new Date(value).toLocaleDateString()
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_, user) => (
+        <div className="action-buttons">
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => navigate(`/edit-user/${user.id}`)}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="danger"
+            size="small"
+            onClick={() => handleDelete(user.id)}
+            disabled={deletingUser === user.id}
+            loading={deletingUser === user.id}
+          >
+            Delete
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
   };
 
-  const filteredUsers = users.filter(user => {
-    // Search term filter
-    const matchesSearch = 
-      user.FullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.UserEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.Username?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Column filters
-    const matchesFilters = Object.entries(columnFilters).every(([column, filter]) => {
-      if (filter === null) return true;
-      
-      switch (column) {
-        case 'loginstatus':
-          return user[column] === filter;
-        case 'usertype':
-          return user[column] === filter;
-        case 'FullName':
-        case 'Username':
-        case 'UserEmail':
-        case 'tl_name':
-          if (filter === 'asc') {
-            return true; // Will be sorted later
-          }
-          return true;
-        default:
-          return true;
-      }
-    });
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
 
-    return matchesSearch && matchesFilters;
-  }).sort((a, b) => {
-    // Apply sorting
-    for (const [column, filter] of Object.entries(columnFilters)) {
-      if (filter === 'asc' || filter === 'desc') {
-        const aValue = a[column]?.toLowerCase() || '';
-        const bValue = b[column]?.toLowerCase() || '';
-        if (aValue !== bValue) {
-          return filter === 'asc' 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        }
-      }
-    }
-    return 0;
-  });
-
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
+  const handleRoleFilter = (e) => {
+    setSelectedRole(e.target.value);
+    setCurrentPage(1);
   };
 
   return (
@@ -183,21 +227,33 @@ const AllUsers = () => {
       <AdminHeaderSection />
       
       <div className="all-users-content">
+        <div className="page-header">
+          <div className="page-title">
+            <h1>All Users</h1>
+            <p>Manage system users and their permissions</p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => navigate('/create-user')}
+          >
+            Create User
+          </Button>
+        </div>
+
         <div className="filters-section">
           <div className="search-filter">
-            <input
-              type="text"
-              placeholder="Search by name, email, or username..."
+            <Input
+              placeholder="Search users..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
+              onChange={handleSearch}
+              icon="🔍"
             />
           </div>
           <div className="role-filter">
             <select
               value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="role-select"
+              onChange={handleRoleFilter}
+              className="filter-select"
             >
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
@@ -207,84 +263,63 @@ const AllUsers = () => {
           </div>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            {error}
+          </div>
+        )}
 
         {loading ? (
-          <div className="loading">Loading users...</div>
+          <LoadingSkeleton type="table" rows={10} />
         ) : (
           <>
-            <div className="users-table-container">
-              <table className="users-table">
-                <thead>
-                  <tr>
-                    <th onClick={() => handleColumnFilter('FullName')} className="sortable">
-                      Name {getFilterIcon('FullName')}
-                    </th>
-                    <th onClick={() => handleColumnFilter('Username')} className="sortable">
-                      Username {getFilterIcon('Username')}
-                    </th>
-                    <th onClick={() => handleColumnFilter('UserEmail')} className="sortable">
-                      Email {getFilterIcon('UserEmail')}
-                    </th>
-                    <th onClick={() => handleColumnFilter('usertype')} className="sortable">
-                      Role {getFilterIcon('usertype')}
-                    </th>
-                    <th onClick={() => handleColumnFilter('tl_name')} className="sortable">
-                      Team Lead {getFilterIcon('tl_name')}
-                    </th>
-                    <th>Registration Date</th>
-                    <th onClick={() => handleColumnFilter('loginstatus')} className="sortable">
-                      Login Status {getFilterIcon('loginstatus')}
-                    </th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map(user => (
-                    <tr key={user.id}>
-                      <td>{user.FullName}</td>
-                      <td>{user.Username}</td>
-                      <td>{user.UserEmail}</td>
-                      <td>{user.usertype || 'Not Assigned'}</td>
-                      <td>{user.tl_name || 'Not Assigned'}</td>
-                      <td>{formatDate(user.RegDate)}</td>
-                      <td>
-                        <span className={`status-badge ${getStatusBadge(user.loginstatus)}`}>
-                          {user.loginstatus === 1 ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="edit-btn"
-                            onClick={() => navigate(`/edit-user/${user.id}`)}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="delete-btn"
-                            onClick={() => handleDelete(user.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              totalItems={users.length}
-              itemsPerPage={itemsPerPage}
+            <Table
+              columns={tableColumns}
+              data={filteredUsers}
+              emptyMessage="No users found"
+              onSort={handleColumnFilter}
+              sortConfig={columnFilters}
             />
+
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                totalItems={filteredUsers.length}
+                itemsPerPage={itemsPerPage}
+              />
+            )}
           </>
         )}
       </div>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete User"
+        size="small"
+      >
+        <div className="delete-confirmation">
+          <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+        </div>
+        <div className="modal-footer">
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteModal(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={confirmDelete}
+            loading={deletingUser}
+          >
+            Delete User
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };
