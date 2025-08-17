@@ -15,7 +15,7 @@ const AllUsers = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage] = useState(100);
 
   // Column filter states
   const [columnFilters, setColumnFilters] = useState({

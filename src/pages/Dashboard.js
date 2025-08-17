@@ -58,6 +58,8 @@ const Dashboard = () => {
   });
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  // Add new state for update operation loading
+  const [isUpdatingLead, setIsUpdatingLead] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -511,7 +513,7 @@ const Dashboard = () => {
     }
 
     try {
-      const response = await fetch(`${BASE_URL}/users/tl`, {
+      const response = await fetch(`${BASE_URL}/users/allUserList?page=1&limit=1000`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -648,8 +650,15 @@ const Dashboard = () => {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isUpdatingLead) {
+      return;
+    }
+    
     try {
-      setLoading(true);
+      setIsUpdatingLead(true);
+      setError('');
       
       const formattedFollowup = editForm.followup instanceof Date
         ? editForm.followup.toISOString().split('T')[0]
@@ -723,7 +732,7 @@ const Dashboard = () => {
     } catch (error) {
       setError('An error occurred while updating the lead');
     } finally {
-      setLoading(false);
+      setIsUpdatingLead(false);
     }
   };
 
@@ -1242,7 +1251,7 @@ const Dashboard = () => {
                   )}
 
                 <div className="form-group">
-                  <label>Product Name:</label>
+                  <label>Assign Lead :</label>
                   <select
                     name="assignedTo"
                     value={editForm.assignedTo}
@@ -1258,11 +1267,18 @@ const Dashboard = () => {
                 </div>
 
                 <div className="modal-actions">
-                  <button type="submit" className="submit-button">Update Lead</button>
+                  <button 
+                    type="submit" 
+                    className="submit-button"
+                    disabled={isUpdatingLead}
+                  >
+                    {isUpdatingLead ? 'Updating...' : 'Update Lead'}
+                  </button>
                   <button
                     type="button"
                     className="cancel-button"
                     onClick={() => setEditingLead(null)}
+                    disabled={isUpdatingLead}
                   >
                     Cancel
                   </button>
@@ -1323,7 +1339,7 @@ const Dashboard = () => {
                   <span>{viewingLead.budget}</span>
                 </div>
                 <div className="detail-group">
-                  <label>Product Name:</label>
+                  <label> Assign Lead to:</label>
                   <span>{viewingLead.assignedTo || 'Not Assigned'}</span>
                 </div>
                 <div className="detail-group">

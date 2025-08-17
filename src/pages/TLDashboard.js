@@ -41,7 +41,8 @@ const TLDashboard = () => {
     followup: '',
     productname: '',
     unittype: '',
-    budget: ''
+    budget: '',
+    assignedTo: '' // Add assignedTo field
   });
   const [budgetList, setBudgetList] = useState([]);
   const [unitList, setUnitList] = useState([]);
@@ -55,6 +56,10 @@ const TLDashboard = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [tlUsers, setTlUsers] = useState([]);
   const [allCallStatus, setAllCallStatuses] = useState([]);
+  // Add new state for all users (for assign lead dropdown)
+  const [allUsers, setAllUsers] = useState([]);
+  // Add loading state for update operation
+  const [isUpdatingLead, setIsUpdatingLead] = useState(false);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -166,30 +171,27 @@ const TLDashboard = () => {
 
   // Static data - only fetch once on component mount with caching
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const initializeData = async () => {
       try {
         setIsInitialLoading(true);
-        
-        // Fetch all static data in parallel for better performance
-        const promises = [
-          fetchCallStatuses(),
-          fetchProductsName(), // Add this function call
-          fetchTLUserCallStatus(),
+        await Promise.all([
+          fetchAllCallStatuses(),
           fetchBudgetList(),
-          fetchUnitList(),
+          fetchCallStatuses(),
+          fetchProductsName(),
+          fetchTLUserCallStatus(),
           fetchTlUsers(),
-          fetchAllCallStatuses()
-        ];
-        
-        await Promise.all(promises);
+          fetchUnitList(),
+          fetchAllUsers() // Add this line
+        ]);
       } catch (error) {
-        console.error('Error fetching initial data:', error);
+        setError('Failed to initialize data');
       } finally {
         setIsInitialLoading(false);
       }
     };
-    
-    fetchInitialData();
+
+    initializeData();
   }, []);
 
   // Dynamic data - fetch when filters change with debouncing
@@ -290,6 +292,34 @@ const TLDashboard = () => {
       }
     } catch (error) {
       setError('An error occurred while fetching all call statuses');
+    }
+  };
+
+  // Add function to fetch all users (not just TL users)
+  const fetchAllUsers = async () => {
+    const cacheKey = 'allUsers';
+    
+    if (dataCache[cacheKey] && isDataFresh(cacheKey)) {
+      setAllUsers(dataCache[cacheKey]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/users/allUserList?page=1&limit=1000`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setAllUsers(data.data || []);
+        updateCache(cacheKey, data.data || []);
+      } else {
+        setError(data.message || 'Failed to fetch users');
+      }
+    } catch (error) {
+      setError('An error occurred while fetching users');
     }
   };
 
@@ -569,6 +599,7 @@ const TLDashboard = () => {
     window.location.href = `tel:${formattedNumber}`;
   }, []);
 
+  // Update handleEditClick to include assignedTo field
   const handleEditClick = useCallback((lead) => {
     setEditingLead(lead);
     setEditForm({
@@ -578,10 +609,11 @@ const TLDashboard = () => {
       ContactNumber: lead.ContactNumber || '',
       callstatus: lead.callstatus || '',
       remarks: lead.remarks || '',
-      followup: lead.followup ? new Date(lead.followup) : new Date(),
+      followup: lead.followup || '',
       productname: lead.productname || '',
       unittype: lead.unittype || '',
-      budget: lead.budget || ''
+      budget: lead.budget || '',
+      assignedTo: lead.assignedTo || '' // Add assignedTo field
     });
   }, []);
 
@@ -593,10 +625,18 @@ const TLDashboard = () => {
     }));
   }, []);
 
+  // Update handleEditSubmit to include assignedTo and loading state
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isUpdatingLead) {
+      return;
+    }
+    
     try {
-      setLoading(true);
+      setIsUpdatingLead(true);
+      setError('');
       
       const formattedFollowup = editForm.followup instanceof Date
         ? editForm.followup.toISOString().split('T')[0]
@@ -638,7 +678,8 @@ const TLDashboard = () => {
           followup: formattedFollowup,
           productname: editForm.productname,
           unittype: editForm.unittype,
-          budget: editForm.budget
+          budget: editForm.budget,
+          assignedTo: editForm.assignedTo // Add assignedTo field
         })
       });
 
@@ -669,7 +710,7 @@ const TLDashboard = () => {
     } catch (error) {
       setError('An error occurred while updating the lead');
     } finally {
-      setLoading(false);
+      setIsUpdatingLead(false);
     }
   };
 
@@ -1055,15 +1096,39 @@ const TLDashboard = () => {
                           ))}
                         </select>
                       </div>
+
+                      {/* Add Assign Lead dropdown */}
+                      <div className="form-group">
+                        <label>Assign Lead:</label>
+                        <select
+                          name="assignedTo"
+                          value={editForm.assignedTo}
+                          onChange={handleEditFormChange}
+                        >
+                          <option value="">Select User</option>
+                          {allUsers.map((user, index) => (
+                            <option key={index} value={user.Username}>
+                              {user.Username}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </>
                   )}
 
                 <div className="modal-actions">
-                  <button type="submit" className="submit-button">Update Lead</button>
+                  <button 
+                    type="submit" 
+                    className="submit-button"
+                    disabled={isUpdatingLead}
+                  >
+                    {isUpdatingLead ? 'Updating...' : 'Update Lead'}
+                  </button>
                   <button
                     type="button"
                     className="cancel-button"
                     onClick={() => setEditingLead(null)}
+                    disabled={isUpdatingLead}
                   >
                     Cancel
                   </button>
@@ -1122,6 +1187,10 @@ const TLDashboard = () => {
                 <div className="detail-group">
                   <label>Budget:</label>
                   <span>{viewingLead.budget}</span>
+                </div>
+                <div className="detail-group">
+                  <label>Assign Lead to:</label>
+                  <span>{viewingLead.assignedTo || 'Not Assigned'}</span>
                 </div>
                 <div className="detail-group">
                   <label>Created At:</label>
