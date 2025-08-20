@@ -166,11 +166,154 @@
   color: #333;
 }
 
+.leads-summary {
+  grid-column: 1 / -1;
+  padding: 10px 0;
+  color: #666;
+  font-size: 14px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 20px;
+}
+
+.clear-search-button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.clear-search-button:hover {
+  background-color: #5a6268;
+}
+
 .no-leads {
   grid-column: 1 / -1;
   text-align: center;
   padding: 40px;
   color: #666;
+}
+
+.no-leads p {
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+/* Pagination Styles */
+.pagination-container {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.pagination-info {
+  display: flex;
+  gap: 20px;
+  color: #666;
+  font-size: 14px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination-button {
+  padding: 8px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.pagination-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 5px;
+}
+
+.page-number {
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  color: #333;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  min-width: 40px;
+}
+
+.page-number:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.page-number.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.page-number.active:hover {
+  background-color: #0056b3;
+}
+
+/* Mobile Responsive Pagination */
+@media (max-width: 768px) {
+  .pagination-container {
+    padding: 15px;
+    margin-top: 20px;
+  }
+
+  .pagination-info {
+    flex-direction: column;
+    gap: 5px;
+    text-align: center;
+  }
+
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .page-numbers {
+    gap: 3px;
+  }
+
+  .page-number {
+    padding: 6px 10px;
+    font-size: 13px;
+    min-width: 35px;
+  }
+
+  .pagination-button {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
 }
 
 /* Mobile Responsive Styles */
