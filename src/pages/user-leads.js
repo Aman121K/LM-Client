@@ -158,7 +158,7 @@ const UserLeads = () => {
                     <tr>
                       <th>Name</th>
                       <th>Mobile</th>
-                      <th>Call Status</th>
+                      <th>Call By</th>
                       <th>Product Name</th>
                       <th>Date</th>
                       <th>Actions</th>
@@ -170,7 +170,7 @@ const UserLeads = () => {
                         <td>{lead.FirstName}</td>
                         <td>{lead.ContactNumber}</td>
                         <td>
-                          <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>{lead.callstatus}</span>
+                        {lead.callby}
                         </td>
                         <td>{lead.productname}</td>
                         <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ''}</td>
