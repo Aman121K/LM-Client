@@ -175,7 +175,7 @@ const ResaleLeads = () => {
                         </span>
                       </div>
                       <div className="lead-details">
-                        <p><strong>Phone:</strong> {lead.ContactNumber || 'N/A'}</p>
+                        {/* <p><strong>Phone:</strong> {lead.ContactNumber || 'N/A'}</p> */}
                         <p><strong>Email:</strong> {lead.EmailId || 'N/A'}</p>
                         <p><strong>Unit Type:</strong> {lead.unittype || 'N/A'}</p>
                         <p><strong>Budget:</strong> {lead.budget || 'N/A'}</p>
