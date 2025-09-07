@@ -1,7 +1,8 @@
 import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminHeaderSection from '../components/AdminHeaderSection';
-import AutoCompleteSearch from '../components/AutoCompleteSearch';
+import MobileDashboardLayout from '../components/MobileDashboardLayout';
+import UserTable from '../components/UserTable';
 import { useUserManagement } from '../hooks/useUserManagement';
 import { usePerformanceMonitor } from '../hooks/usePerformanceMonitor';
 import './AllUsers.css';
@@ -22,6 +23,9 @@ const AllUsers = () => {
 
   // Local search state
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortDirection, setSortDirection] = useState('asc');
 
   // Add debugging
   useEffect(() => {
@@ -58,36 +62,156 @@ const AllUsers = () => {
     setSearchTerm(searchTerm);
   }, []);
 
-  const getStatusBadge = (loginStatus) => {
-    return loginStatus === 1 ? 'active' : 'inactive';
-  };
+  const handleToggleSelection = useCallback((userId) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  }, []);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const handleSelectAll = useCallback((checked) => {
+    if (checked) {
+      setSelectedUsers(filteredUsers.map(user => user.id));
+    } else {
+      setSelectedUsers([]);
+    }
+  }, [filteredUsers]);
+
+  const handleEdit = useCallback((userId) => {
+    navigate(`/edit-user/${userId}`);
+  }, [navigate]);
+
+  const handleDelete = useCallback((userId) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      // Handle delete
+      console.log('Delete user:', userId);
+    }
+  }, []);
+
+  const handleSort = useCallback((field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  }, [sortField]);
+
+  const handleBulkEdit = useCallback(() => {
+    if (selectedUsers.length === 0) return;
+    // Handle bulk edit
+    console.log('Bulk edit users:', selectedUsers);
+  }, [selectedUsers]);
+
+  const handleBulkDelete = useCallback(() => {
+    if (selectedUsers.length === 0) return;
+    if (window.confirm(`Are you sure you want to delete ${selectedUsers.length} users?`)) {
+      // Handle bulk delete
+      console.log('Bulk delete users:', selectedUsers);
+      setSelectedUsers([]);
+    }
+  }, [selectedUsers]);
+
+  // Dashboard actions
+  const dashboardActions = [
+    {
+      label: 'Add New User',
+      icon: '👤',
+      variant: 'btn-primary',
+      onClick: () => navigate('/create-user'),
+    },
+    {
+      label: 'Export Users',
+      icon: '📤',
+      variant: 'btn-outline',
+      onClick: () => console.log('Export users'),
+    },
+    {
+      label: 'Bulk Edit',
+      icon: '✏️',
+      variant: 'btn-outline',
+      onClick: handleBulkEdit,
+      disabled: selectedUsers.length === 0,
+    },
+    {
+      label: 'Bulk Delete',
+      icon: '🗑️',
+      variant: 'btn-danger',
+      onClick: handleBulkDelete,
+      disabled: selectedUsers.length === 0,
+    },
+  ];
+
+  // Dashboard filters
+  const dashboardFilters = [
+    {
+      type: 'select',
+      value: filters?.role || '',
+      onChange: (e) => setFilters(prev => ({ ...prev, role: e.target.value })),
+      options: [
+        { value: '', label: 'All Roles' },
+        { value: 'admin', label: 'Admin' },
+        { value: 'operator', label: 'Operator' },
+        { value: 'team_lead', label: 'Team Lead' },
+      ],
+    },
+    {
+      type: 'select',
+      value: filters?.status || '',
+      onChange: (e) => setFilters(prev => ({ ...prev, status: e.target.value })),
+      options: [
+        { value: '', label: 'All Status' },
+        { value: '1', label: 'Active' },
+        { value: '0', label: 'Inactive' },
+      ],
+    },
+    {
+      type: 'text',
+      value: searchTerm,
+      onChange: (e) => setSearchTerm(e.target.value),
+      placeholder: 'Search users...',
+    },
+  ];
+
+  // Dashboard stats
+  const dashboardStats = [
+    {
+      icon: '👥',
+      value: users?.length || 0,
+      label: 'Total Users',
+    },
+    {
+      icon: '✅',
+      value: users?.filter(user => user.loginstatus === 1).length || 0,
+      label: 'Active Users',
+    },
+    {
+      icon: '❌',
+      value: users?.filter(user => user.loginstatus === 0).length || 0,
+      label: 'Inactive Users',
+    },
+    {
+      icon: '🎯',
+      value: selectedUsers.length,
+      label: 'Selected',
+    },
+  ];
 
   // Show loading state
   if (loading) {
     return (
       <div className="all-users-container">
         <AdminHeaderSection />
-        <div className="all-users-content">
-          <div className="page-header">
-            <div className="header-left">
-              <h2>User Management</h2>
-            </div>
-          </div>
-          <div className="loading">
+        <MobileDashboardLayout
+          title="User Management"
+          subtitle="Manage all system users"
+        >
+          <div className="loading-container">
             <div className="loading-spinner"></div>
-            <p>Loading users...</p>
+            <p className="loading-text">Loading users...</p>
           </div>
-        </div>
+        </MobileDashboardLayout>
       </div>
     );
   }
@@ -96,114 +220,65 @@ const AllUsers = () => {
     <div className="all-users-container">
       <AdminHeaderSection />
       
-      <div className="all-users-content">
-        <div className="page-header">
-          <div className="header-left">
-            <h2>User Management</h2>
-          </div>
-          <button 
-            className="add-user-btn"
-            onClick={() => navigate('/create-user')}
-          >
-            Add New User
-          </button>
-        </div>
-
+      <MobileDashboardLayout
+        title="User Management"
+        subtitle="Manage all system users"
+        actions={dashboardActions}
+        filters={dashboardFilters}
+        stats={dashboardStats}
+      >
         {error && (
           <div className="error-message">
-            {error}
+            <div className="error-icon">⚠️</div>
+            <div className="error-content">
+              <h3 className="error-title">Error Loading Users</h3>
+              <p className="error-description">{error}</p>
+            </div>
           </div>
         )}
 
-        <div className="search-section">
-          <AutoCompleteSearch
-            value={searchTerm}
-            onChange={handleSearch}
-            onSearch={handleSearch}
-            placeholder="Search by name, email, username, role, or team lead..."
-            suggestions={[]} // Empty array to prevent suggestions dropdown
-            loading={false}
-          />
-        </div>
+        <UserTable
+          users={filteredUsers}
+          selectedUsers={selectedUsers}
+          onToggleSelection={handleToggleSelection}
+          onSelectAll={handleSelectAll}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onSort={handleSort}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          loading={loading}
+        />
 
-        {/* Simple Table View */}
-        <div className="users-table-container">
-          <table className="users-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Full Name</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Team Lead</th>
-                <th>Registration Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers && filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="user-row">
-                    <td>{user.id}</td>
-                    <td>{user.FullName || 'N/A'}</td>
-                    <td>{user.Username || 'N/A'}</td>
-                    <td>{user.UserEmail || 'N/A'}</td>
-                    <td>
-                      <span className={`role-badge ${user.usertype?.toLowerCase()}`}>
-                        {user.usertype || 'Not Assigned'}
-                      </span>
-                    </td>
-                    <td>{user.tl_name || 'Not Assigned'}</td>
-                    <td>{formatDate(user.RegDate)}</td>
-                    <td>
-                      <span className={`status-badge ${getStatusBadge(user.loginstatus)}`}>
-                        {user.loginstatus === 1 ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button 
-                          className="edit-btn"
-                          onClick={() => navigate(`/edit-user/${user.id}`)}
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          className="delete-btn"
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this user?')) {
-                              // Handle delete
-                              console.log('Delete user:', user.id);
-                            }
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="9" className="no-data">
-                    {searchTerm ? `No users found matching "${searchTerm}"` : 'No users found'}
-                  </td>
-                </tr>
+        {/* Mobile Summary */}
+        <div className="mobile-summary-section hidden-desktop">
+          <div className="summary-card">
+            <div className="summary-header">
+              <h3 className="summary-title">Summary</h3>
+            </div>
+            <div className="summary-content">
+              <div className="summary-item">
+                <span className="summary-label">Total Users:</span>
+                <span className="summary-value">{users?.length || 0}</span>
+              </div>
+              <div className="summary-item">
+                <span className="summary-label">Filtered Results:</span>
+                <span className="summary-value">{filteredUsers.length}</span>
+              </div>
+              <div className="summary-item">
+                <span className="summary-label">Selected:</span>
+                <span className="summary-value">{selectedUsers.length}</span>
+              </div>
+              {searchTerm && (
+                <div className="summary-item">
+                  <span className="summary-label">Search Term:</span>
+                  <span className="summary-value">"{searchTerm}"</span>
+                </div>
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
-
-        {/* Summary */}
-        <div className="table-summary">
-          <p>
-            Showing {filteredUsers.length} of {users ? users.length : 0} users
-            {searchTerm && ` (filtered by "${searchTerm}")`}
-          </p>
-        </div>
-      </div>
+      </MobileDashboardLayout>
     </div>
   );
 };
