@@ -138,7 +138,6 @@ const AllUsers = () => {
                 <th>Role</th>
                 <th>Team Lead</th>
                 <th>Registration Date</th>
-                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -157,11 +156,6 @@ const AllUsers = () => {
                     </td>
                     <td>{user.tl_name || 'Not Assigned'}</td>
                     <td>{formatDate(user.RegDate)}</td>
-                    <td>
-                      <span className={`status-badge ${getStatusBadge(user.loginstatus)}`}>
-                        {user.loginstatus === 1 ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
                     <td>
                       <div className="action-buttons">
                         <button 
@@ -187,7 +181,7 @@ const AllUsers = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="no-data">
+                  <td colSpan="8" className="no-data">
                     {searchTerm ? `No users found matching "${searchTerm}"` : 'No users found'}
                   </td>
                 </tr>

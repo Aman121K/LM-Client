@@ -73,11 +73,6 @@ const UserTable = ({
         <div className="table-cell">{user.usertype || 'Not Assigned'}</div>
         <div className="table-cell">{user.tl_name || 'Not Assigned'}</div>
         <div className="table-cell">{formatDate(user.RegDate)}</div>
-        <div className="table-cell">
-          <span className={`status-badge ${getStatusBadge(user.loginstatus)}`}>
-            {user.loginstatus === 1 ? 'Active' : 'Inactive'}
-          </span>
-        </div>
         <div className="table-cell actions-cell">
           <button className="edit-btn" onClick={() => onEdit(user.id)}>
             Edit
@@ -140,12 +135,6 @@ const UserTable = ({
             onClick={() => onSort('RegDate')}
           >
             Registration Date {getSortIcon('RegDate')}
-          </div>
-          <div 
-            className="table-cell sortable"
-            onClick={() => onSort('loginstatus')}
-          >
-            Login Status {getSortIcon('loginstatus')}
           </div>
           <div className="table-cell">Actions</div>
         </div>

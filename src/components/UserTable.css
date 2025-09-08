@@ -1,3 +1,240 @@
+.user-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin: 20px 0;
+}
 
+.table-header {
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
 
+.header-row {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: #495057;
+  min-height: 48px;
+}
 
+.table-cell {
+  padding: 12px 16px;
+  border-right: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.table-cell:last-child {
+  border-right: none;
+}
+
+.checkbox-cell {
+  flex: 0 0 50px;
+  justify-content: center;
+}
+
+.actions-cell {
+  flex: 0 0 120px;
+  justify-content: center;
+  gap: 8px;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.sortable:hover {
+  background-color: #e9ecef;
+}
+
+.table-body {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.table-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #dee2e6;
+  transition: background-color 0.2s ease;
+  min-height: 50px;
+}
+
+.table-row:hover {
+  background-color: #f8f9fa;
+}
+
+.table-row.selected {
+  background-color: #e3f2fd;
+}
+
+.table-row.hovered {
+  background-color: #f0f8ff;
+}
+
+.edit-btn, .delete-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.edit-btn {
+  background-color: #2196f3;
+  color: white;
+}
+
+.edit-btn:hover {
+  background-color: #1976d2;
+}
+
+.delete-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #d32f2f;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  font-size: 16px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .user-table-container {
+    margin: 10px 0;
+    border-radius: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .header-row,
+  .table-row {
+    min-width: 600px;
+  }
+
+  .table-cell {
+    padding: 8px 4px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .table-cell:first-child {
+    flex: 0 0 40px;
+  }
+
+  .table-cell:nth-child(2) {
+    flex: 0 0 100px;
+  }
+
+  .table-cell:nth-child(3) {
+    flex: 0 0 80px;
+  }
+
+  .table-cell:nth-child(4) {
+    flex: 0 0 120px;
+  }
+
+  .table-cell:nth-child(5) {
+    flex: 0 0 80px;
+  }
+
+  .table-cell:nth-child(6) {
+    flex: 0 0 100px;
+  }
+
+  .table-cell:nth-child(7) {
+    flex: 0 0 100px;
+  }
+
+  .actions-cell {
+    flex: 0 0 100px;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .edit-btn,
+  .delete-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    width: 100%;
+  }
+
+  .checkbox-cell {
+    flex: 0 0 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-table-container {
+    margin: 5px 0;
+  }
+
+  .header-row,
+  .table-row {
+    min-width: 500px;
+  }
+
+  .table-cell {
+    padding: 6px 2px;
+    font-size: 0.8rem;
+  }
+
+  .table-cell:first-child {
+    flex: 0 0 30px;
+  }
+
+  .table-cell:nth-child(2) {
+    flex: 0 0 80px;
+  }
+
+  .table-cell:nth-child(3) {
+    flex: 0 0 60px;
+  }
+
+  .table-cell:nth-child(4) {
+    flex: 0 0 100px;
+  }
+
+  .table-cell:nth-child(5) {
+    flex: 0 0 60px;
+  }
+
+  .table-cell:nth-child(6) {
+    flex: 0 0 80px;
+  }
+
+  .table-cell:nth-child(7) {
+    flex: 0 0 80px;
+  }
+
+  .actions-cell {
+    flex: 0 0 80px;
+  }
+
+  .edit-btn,
+  .delete-btn {
+    padding: 3px 6px;
+    font-size: 0.7rem;
+  }
+
+  .checkbox-cell {
+    flex: 0 0 30px;
+  }
+}

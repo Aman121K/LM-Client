@@ -1069,7 +1069,6 @@ const Dashboard = () => {
                     <tr>
                       <th>Name</th>
                       <th>Mobile</th>
-                      <th>Call Status</th>
                       <th>Product Name</th>
                       <th>Date</th>
                       <th>Actions</th>
@@ -1080,11 +1079,6 @@ const Dashboard = () => {
                       <tr key={lead.id}>
                         <td>{lead.FirstName}</td>
                         <td>{lead.ContactNumber}</td>
-                        <td>
-                          <span className={`status-badge ${lead?.callstatus?.toLowerCase()}`}>
-                            {lead.callstatus}
-                          </span>
-                        </td>
                         <td>{lead.productname}</td>
                         <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
                         <td>
