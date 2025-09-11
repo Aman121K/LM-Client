@@ -57,10 +57,10 @@ const AdminDashboard = () => {
         ) : (
           <section className="tl-cards-grid">
             {tlData.map((tl, idx) => {
-              // Calculate summary for this TL
-              const totalData = tl.users?.reduce((sum, u) => sum + (u.totalData || 0), 0);
-              const totalDone = tl.users?.reduce((sum, u) => sum + (u.totalCallsDone || 0), 0);
-              const totalPending = tl.users?.reduce((sum, u) => sum + (u.totalCallsPending || 0), 0);
+              // Calculate summary for this TL - ensure values are numbers
+              const totalData = tl.users?.reduce((sum, u) => sum + Number(u.totalData || 0), 0);
+              const totalDone = tl.users?.reduce((sum, u) => sum + Number(u.totalCallsDone || 0), 0);
+              const totalPending = tl.users?.reduce((sum, u) => sum + Number(u.totalCallsPending || 0), 0);
               return (
                 <section key={tl.tlName || idx} className="tl-card">
                   <div className="tl-accent-bar"></div>
@@ -84,9 +84,9 @@ const AdminDashboard = () => {
                             {tl.users.map((user, uidx) => (
                               <tr key={user.userName || uidx}>
                                 <td style={{fontWeight: 500}}>{user.userName}</td>
-                                <td>{user.totalData}</td>
-                                <td><span className="badge badge-done">{user.totalCallsDone}</span></td>
-                                <td><span className="badge badge-pending">{user.totalCallsPending}</span></td>
+                                <td>{Number(user.totalData || 0)}</td>
+                                <td><span className="badge badge-done">{Number(user.totalCallsDone || 0)}</span></td>
+                                <td><span className="badge badge-pending">{Number(user.totalCallsPending || 0)}</span></td>
                               </tr>
                             ))}
                             <tr className="summary-row">
