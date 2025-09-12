@@ -118,6 +118,39 @@ const CallStatusStatistics = () => {
     return total;
   };
 
+  // Group users by Team Lead and sort alphabetically
+  const groupUsersByTeamLead = () => {
+    if (!statistics || !statistics.userStatistics) return {};
+    
+    const grouped = {};
+    
+    statistics.userStatistics.forEach(user => {
+      const tlName = user.tlName || 'Not Assigned';
+      if (!grouped[tlName]) {
+        grouped[tlName] = [];
+      }
+      grouped[tlName].push(user);
+    });
+    
+    // Sort users within each TL group alphabetically by fullName
+    Object.keys(grouped).forEach(tlName => {
+      grouped[tlName].sort((a, b) => a.fullName.localeCompare(b.fullName));
+    });
+    
+    return grouped;
+  };
+
+  // Get sorted TL names
+  const getSortedTeamLeadNames = () => {
+    const grouped = groupUsersByTeamLead();
+    return Object.keys(grouped).sort((a, b) => {
+      // Put "Not Assigned" at the end
+      if (a === 'Not Assigned') return 1;
+      if (b === 'Not Assigned') return -1;
+      return a.localeCompare(b);
+    });
+  };
+
   if (loading) {
     return (
       <div className="call-status-container">
@@ -291,86 +324,105 @@ const CallStatusStatistics = () => {
           </div>
         </div>
 
-        {/* User Statistics Table */}
+        {/* User Statistics by Team Lead */}
         {statistics.userStatistics && statistics.userStatistics.length > 0 && (
           <div className="user-statistics-section">
-            <h3>User Call Statistics</h3>
-            <div className="table-container">
-              <table className="statistics-table">
-                <thead>
-                  <tr>
-                    <th>Full Name</th>
-                    <th>Team Lead</th>
-                    <th>Details Shared</th>
-                    <th>Warm</th>
-                    <th>Site Visit Done</th>
-                    <th>Site Visit Planned</th>
-                    <th>Site Visit Planned (This Week)</th>
-                    <th>Resale Buyer</th>
-                    <th>Total Calls</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statistics.userStatistics.map((user) => (
-                    <tr key={user.userId} className="user-row">
-                      <td>{user.fullName}</td>
-                      <td>{user.tlName || 'Not Assigned'}</td>
-                      <td className="status-count-cell">
-                        <span 
-                          className="status-badge"
-                          style={{ backgroundColor: getDisplayCount(user, 'details shared') > 0 ? getStatusColor('details shared') : '#e0e0e0' }}
-                        >
-                          {getDisplayCount(user, 'details shared')}
-                        </span>
-                      </td>
-                      <td className="status-count-cell">
-                        <span 
-                          className="status-badge"
-                          style={{ backgroundColor: getDisplayCount(user, 'warm') > 0 ? getStatusColor('warm') : '#e0e0e0' }}
-                        >
-                          {getDisplayCount(user, 'warm')}
-                        </span>
-                      </td>
-                      <td className="status-count-cell">
-                        <span 
-                          className="status-badge"
-                          style={{ backgroundColor: getDisplayCount(user, 'site visit done') > 0 ? getStatusColor('site visit done') : '#e0e0e0' }}
-                        >
-                          {getDisplayCount(user, 'site visit done')}
-                        </span>
-                      </td>
-                      <td className="status-count-cell">
-                        <span 
-                          className="status-badge"
-                          style={{ backgroundColor: getDisplayCount(user, 'site visit planned') > 0 ? getStatusColor('site visit planned') : '#e0e0e0' }}
-                        >
-                          {getDisplayCount(user, 'site visit planned')}
-                        </span>
-                      </td>
-                      <td className="status-count-cell">
-                        <span 
-                          className="status-badge"
-                          style={{ backgroundColor: getDisplayCount(user, 'site visit planned (this week)') > 0 ? getStatusColor('site visit planned (this week)') : '#e0e0e0' }}
-                        >
-                          {getDisplayCount(user, 'site visit planned (this week)')}
-                        </span>
-                      </td>
-                      <td className="status-count-cell">
-                        <span 
-                          className="status-badge"
-                          style={{ backgroundColor: getDisplayCount(user, 'Resale-buyer') > 0 ? getStatusColor('Resale-buyer') : '#e0e0e0' }}
-                        >
-                          {getDisplayCount(user, 'Resale-buyer')}
-                        </span>
-                      </td>
-                      <td className="total-calls-cell">
-                        <strong>{user.totalCalls}</strong>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <h3>User Call Statistics by Team Lead</h3>
+            
+            {getSortedTeamLeadNames().map(tlName => {
+              const grouped = groupUsersByTeamLead();
+              const users = grouped[tlName];
+              const userCount = users.length;
+              
+              return (
+                <div key={tlName} className="team-lead-section">
+                  <div className="team-lead-header">
+                    <h4 className="team-lead-title">
+                      <span className="team-lead-icon">👥</span>
+                      {tlName}
+                      <span className="user-count">({userCount} {userCount === 1 ? 'user' : 'users'})</span>
+                    </h4>
+                  </div>
+                  
+                  <div className="table-container">
+                    <table className="statistics-table">
+                      <thead>
+                        <tr>
+                          <th>Full Name</th>
+                          <th>Details Shared</th>
+                          <th>Warm</th>
+                          <th>Site Visit Done</th>
+                          <th>Site Visit Planned</th>
+                          <th>Site Visit Planned (This Week)</th>
+                          <th>Resale Buyer</th>
+                          <th>Total Calls</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((user) => (
+                          <tr key={user.userId} className="user-row">
+                            <td className="user-name-cell">
+                              <span className="user-name">{user.fullName}</span>
+                            </td>
+                            <td className="status-count-cell">
+                              <span 
+                                className="status-badge"
+                                style={{ backgroundColor: getDisplayCount(user, 'details shared') > 0 ? getStatusColor('details shared') : '#e0e0e0' }}
+                              >
+                                {getDisplayCount(user, 'details shared')}
+                              </span>
+                            </td>
+                            <td className="status-count-cell">
+                              <span 
+                                className="status-badge"
+                                style={{ backgroundColor: getDisplayCount(user, 'warm') > 0 ? getStatusColor('warm') : '#e0e0e0' }}
+                              >
+                                {getDisplayCount(user, 'warm')}
+                              </span>
+                            </td>
+                            <td className="status-count-cell">
+                              <span 
+                                className="status-badge"
+                                style={{ backgroundColor: getDisplayCount(user, 'site visit done') > 0 ? getStatusColor('site visit done') : '#e0e0e0' }}
+                              >
+                                {getDisplayCount(user, 'site visit done')}
+                              </span>
+                            </td>
+                            <td className="status-count-cell">
+                              <span 
+                                className="status-badge"
+                                style={{ backgroundColor: getDisplayCount(user, 'site visit planned') > 0 ? getStatusColor('site visit planned') : '#e0e0e0' }}
+                              >
+                                {getDisplayCount(user, 'site visit planned')}
+                              </span>
+                            </td>
+                            <td className="status-count-cell">
+                              <span 
+                                className="status-badge"
+                                style={{ backgroundColor: getDisplayCount(user, 'site visit planned (this week)') > 0 ? getStatusColor('site visit planned (this week)') : '#e0e0e0' }}
+                              >
+                                {getDisplayCount(user, 'site visit planned (this week)')}
+                              </span>
+                            </td>
+                            <td className="status-count-cell">
+                              <span 
+                                className="status-badge"
+                                style={{ backgroundColor: getDisplayCount(user, 'Resale-buyer') > 0 ? getStatusColor('Resale-buyer') : '#e0e0e0' }}
+                              >
+                                {getDisplayCount(user, 'Resale-buyer')}
+                              </span>
+                            </td>
+                            <td className="total-calls-cell">
+                              <strong>{user.totalCalls}</strong>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
