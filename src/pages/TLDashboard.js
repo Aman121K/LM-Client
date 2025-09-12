@@ -919,7 +919,7 @@ const TLDashboard = () => {
                       <th>Name</th>
                       <th>Mobile</th>
                       <th>Product Name</th>
-                      <th>Date</th>
+                      {/* <th>Date</th> */}
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -929,7 +929,7 @@ const TLDashboard = () => {
                         <td>{lead.FirstName}</td>
                         <td>{lead.ContactNumber}</td>
                         <td>{lead.productname}</td>
-                        <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ''}</td>
+                        {/* <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : ''}</td> */}
                         <td>
                           <div className="action-buttons">
                             <button

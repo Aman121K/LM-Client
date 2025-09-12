@@ -1070,7 +1070,7 @@ const Dashboard = () => {
                       <th>Name</th>
                       <th>Mobile</th>
                       <th>Product Name</th>
-                      <th>Date</th>
+                      {/* <th>Date</th> */}
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -1080,7 +1080,7 @@ const Dashboard = () => {
                         <td>{lead.FirstName}</td>
                         <td>{lead.ContactNumber}</td>
                         <td>{lead.productname}</td>
-                        <td>{new Date(lead.createdAt).toLocaleDateString()}</td>
+                        {/* <td>{new Date(lead.createdAt).toLocaleDateString()}</td> */}
                         <td>
                           <div className="action-buttons">
                             <button
